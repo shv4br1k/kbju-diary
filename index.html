@@ -368,6 +368,9 @@ function mergeData(a, b) {
 }
 const stable = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((r, x) => (r[x] = v[x], r), {}) : v);
 
+/* Sync is switched off until config.js sets sync: true. */
+const SYNC_ON = !!(window.KBJU_CONFIG && window.KBJU_CONFIG.sync);
+
 /* ---------- Sync through a private GitHub repository: one data.json, every save is a commit ---------- */
 const Sync = (() => {
   const API = 'https://api.github.com';
@@ -461,7 +464,7 @@ const Sync = (() => {
     return running;
   }
   function schedule(ms = 10000) {
-    if (!cfg() || st.state === 'relogin') return;
+    if (!SYNC_ON || !cfg() || st.state === 'relogin') return;
     clearTimeout(timer); timer = setTimeout(now, ms);
   }
   function listen() {
@@ -843,7 +846,7 @@ function profileHTML() {
         <label class="f"><span>Углеводы, г</span><input class="field num" id="pf-mc" data-prof="mC" type="number" inputmode="numeric" value="${val('mC')}"></label>
       </div>` : ''}
     </section>
-    <section class="card" id="synccard">${syncCardHTML()}</section>
+    ${SYNC_ON ? `<section class="card" id="synccard">${syncCardHTML()}</section>` : ''}
     <section class="card">
       <h2>Резервная копия</h2>
       <p class="fine">Файл со всеми продуктами, днями и параметрами. Пригодится для переноса или на всякий случай.</p>
@@ -1309,9 +1312,11 @@ async function init() {
   await loadDay(S.date);
   S.ready = true;
   render();
-  Sync.onChange(renderSync);
-  renderSync();
-  Sync.start({ flush: () => flushDay(), applied: onRemoteData });
+  if (SYNC_ON) {
+    Sync.onChange(renderSync);
+    renderSync();
+    Sync.start({ flush: () => flushDay(), applied: onRemoteData });
+  }
 }
 init();
 })();
