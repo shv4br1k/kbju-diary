@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Дневник КБЖУ</title>
+<meta name="theme-color" content="#111613">
+<meta name="description" content="Личный дневник калорий и КБЖУ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<script src="config.js"></script>
+<style>
+/* Layout: one narrow column like a food label — sticky header with tabs, day summary, then meal cards. */
+:root {
+  /* Always dark, by request. */
+  --bg: #111613; --surface: #19201C; --surface-2: #151B18; --ink: #E6ECE8; --muted: #93A199;
+  --line: #2A3530; --accent: #5BBE93; --accent-ink: #0D1511; --accent-soft: #1D3129;
+  --prot: #82A9E2; --fat: #E3B24C; --carb: #C68DD6; --warn: #F07C66; --warn-soft: #3A201B;
+  --shadow: 0 1px 2px rgba(0,0,0,.3);
+  color-scheme: dark;
+  --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r: 14px;
+}
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.wrap { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-block: 12px 10px; }
+.brand { font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: -.01em; margin: 0; flex: 1 1 auto; }
+.brand span { color: var(--accent); }
+.status { font-size: 12px; color: var(--muted); }
+.status.err { color: var(--warn); }
+.hbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 10px; font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.hbtn:hover { color: var(--ink); border-color: var(--accent); }
+.hbtn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.hbtn[data-s="ok"] .dot { background: var(--accent); }
+.hbtn[data-s="syncing"] .dot { background: var(--fat); }
+.hbtn[data-s="error"] .dot, .hbtn[data-s="relogin"] .dot { background: var(--warn); }
+.hbtn.install { color: var(--accent); border-color: var(--accent); }
+.tabs { display: flex; gap: 4px; width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.tabs button { flex: 1; border: 0; background: transparent; padding: 8px 6px; border-radius: 9px; font-weight: 500; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; gap: 16px; }
+.notice { font-size: 13px; color: var(--muted); background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+
+/* Day bar */
+.daybar { display: flex; align-items: center; gap: 8px; }
+.iconbtn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; font-size: 18px; line-height: 1; flex: none; }
+.iconbtn:hover { border-color: var(--accent); }
+.dayname { flex: 1; min-width: 0; text-align: center; }
+.dayname b { display: block; font-family: var(--font-display); font-weight: 500; font-size: 16px; }
+.dayname span { font-size: 13px; color: var(--muted); }
+.todaybtn { border: 0; background: none; color: var(--accent); font-size: 13px; font-weight: 500; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Summary */
+.summary { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.sum-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.kcal-big { font-family: var(--font-display); font-weight: 600; font-size: 34px; letter-spacing: -.02em; line-height: 1; }
+.kcal-big small { font-family: var(--font-body); font-weight: 400; font-size: 15px; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.left { font-size: 14px; color: var(--muted); text-align: right; }
+.left b { color: var(--ink); font-weight: 600; }
+.left.over b { color: var(--warn); }
+.bar { height: 8px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .25s ease; }
+.bar.over i { background: var(--warn); }
+.macros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.macro { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.macro .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.macro .val { font-size: 14px; }
+.macro .val b { font-weight: 600; }
+.macro .bar { height: 6px; }
+.macro.p .bar i { background: var(--prot); }
+.macro.f .bar i { background: var(--fat); }
+.macro.c .bar i { background: var(--carb); }
+.macro .bar.over i { background: var(--warn); }
+.goalhint { font-size: 13px; color: var(--muted); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Meals */
+.meals { display: flex; flex-direction: column; }
+.meal { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border: 1px solid transparent; }
+.meal.snack { background: var(--surface-2); border: 1px dashed var(--line); box-shadow: none; }
+.meal.drop-before { box-shadow: 0 -3px 0 0 var(--accent); }
+.meal.drop-after { box-shadow: 0 3px 0 0 var(--accent); }
+.meal.dragging { opacity: .5; }
+.meal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.meal-head h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 15px; }
+.meal-sum { font-size: 13px; color: var(--muted); margin-left: auto; }
+.meal-sum b { color: var(--ink); font-weight: 600; }
+.handle { cursor: grab; color: var(--muted); font-size: 16px; padding: 2px 4px; user-select: none; touch-action: none; border: 0; background: none; }
+.snack-tools { display: flex; gap: 4px; }
+.mini { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; height: 28px; min-width: 28px; padding: 0 7px; font-size: 13px; color: var(--muted); }
+.mini:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+.mini:disabled { opacity: .35; cursor: default; }
+
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px 28px; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.iname { min-width: 0; }
+.iname div { overflow-wrap: anywhere; }
+.iname small { display: block; color: var(--muted); font-size: 12px; }
+.qty { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.qty input { width: 64px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: right; font-variant-numeric: tabular-nums; }
+.qty input:focus { border-color: var(--accent); outline: none; }
+.qty .pcs { font-size: 12px; min-width: 0; }
+.ikcal { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ikcal small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+.del { border: 0; background: none; color: var(--muted); font-size: 18px; width: 28px; height: 28px; border-radius: 8px; line-height: 1; }
+.del:hover { color: var(--warn); background: var(--warn-soft); }
+.empty { font-size: 13px; color: var(--muted); margin: 0; }
+
+.addbtn { align-self: flex-start; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 12px; font-weight: 500; color: var(--accent); }
+.addbtn:hover { border-color: var(--accent); }
+.snack-gap { display: flex; justify-content: center; padding: 6px 0; }
+.snack-gap button { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 10px; border-radius: 99px; opacity: .75; }
+.snack-gap button:hover, .snack-gap button:focus-visible { opacity: 1; color: var(--accent); background: var(--accent-soft); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 5px 11px; font-size: 13px; color: var(--muted); }
+.chip:hover { border-color: var(--accent); color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ghead { padding: 10px 16px 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--surface-2); border: 0; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; }
+.ghead:hover { color: var(--ink); }
+.ghead .caret { display: inline-block; transition: transform .15s ease; font-size: 10px; }
+.ghead[aria-expanded="false"] .caret { transform: rotate(-90deg); }
+.ghead .gcount { margin-left: auto; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.plist .ghead:first-child { border-top: 0; border-radius: var(--r) var(--r) 0 0; }
+.ghead + .prow { border-top: 0; }
+.results { max-height: 320px; overflow-y: auto; }
+.results .ghead { padding: 10px 6px 4px; background: none; border: 0; }
+.applybar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); }
+.applybar.idle { background: var(--surface-2); border: 1px solid var(--line); }
+.applybar span { flex: 1 1 200px; font-size: 14px; }
+.btn:disabled { opacity: .45; cursor: default; filter: none; }
+.catrow { display: flex; gap: 8px; align-items: center; }
+.catrow .field { flex: 1; min-width: 0; }
+.catlist { display: flex; flex-direction: column; gap: 8px; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; }
+.confirm span { flex: 1 1 160px; }
+
+/* Add panel */
+.addpanel { border: 1px solid var(--accent); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); }
+.addpanel-top { display: flex; gap: 8px; }
+.field { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.field:focus { border-color: var(--accent); outline: none; }
+.results { display: flex; flex-direction: column; }
+.res { display: flex; justify-content: space-between; gap: 10px; text-align: left; border: 0; background: none; padding: 8px 6px; border-radius: 8px; }
+.res:hover, .res:focus-visible { background: var(--accent-soft); }
+.res span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.res small { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.picked { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+.picked .pname small { display: block; color: var(--muted); font-size: 12px; }
+.pickrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pickrow input { width: 90px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 2px; background: var(--surface-2); }
+.seg button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; color: var(--muted); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.preview { font-size: 14px; color: var(--muted); }
+.preview b { color: var(--ink); }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 14px; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.danger { color: var(--warn); }
+.btn.sm { padding: 5px 10px; font-size: 13px; }
+
+/* Products tab */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+.toolbar .field { flex: 1 1 200px; width: auto; }
+.label-note { font-size: 13px; color: var(--muted); margin: 0; }
+.plist { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+.prow:first-child { border-top: 0; }
+.prow .pn { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.prow .pn small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.facts { display: flex; gap: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.facts span { display: flex; flex-direction: column; align-items: flex-end; min-width: 34px; }
+.facts em { font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.facts .k { font-weight: 600; }
+.prow .acts { display: flex; gap: 4px; }
+.prow .confirm { grid-column: 1 / -1; }
+@media (max-width: 520px) {
+  .prow { grid-template-columns: minmax(0, 1fr) auto; }
+  .facts { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
+  .facts span { align-items: flex-start; }
+  .item { grid-template-columns: minmax(0, 1fr) auto 52px 28px; gap: 8px; }
+  .qty input { width: 56px; }
+}
+
+/* Profile tab */
+.card { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.card h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.f { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.f > span { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.goalseg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.goalseg button { padding: 9px 6px; }
+.result { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.stat span { display: block; font-size: 12px; color: var(--muted); }
+.stat b { font-family: var(--font-display); font-weight: 500; font-size: 20px; font-variant-numeric: tabular-nums; }
+.stat.main { background: var(--accent-soft); border-color: transparent; }
+.stat.p b { color: var(--prot); } .stat.f b { color: var(--fat); } .stat.c b { color: var(--carb); }
+.fine { font-size: 12px; color: var(--muted); margin: 0; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+textarea.field { min-height: 120px; font-family: ui-monospace, monospace; font-size: 12px; }
+
+/* Modal */
+.overlay { position: fixed; inset: 0; z-index: 20; background: rgba(10, 18, 14, .45); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal { width: 100%; max-width: 440px; max-height: 100%; overflow: auto; background: var(--surface); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.modal h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 17px; }
+.label100 { border: 2px solid var(--ink); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.label100 .lh { font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--ink); padding-bottom: 6px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.grid4 input { text-align: right; font-variant-numeric: tabular-nums; padding: 8px; }
+.err { color: var(--warn); font-size: 13px; margin: 0; }
+.loading { padding: 60px 0; text-align: center; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1 class="brand">Дневник <span>КБЖУ</span></h1>
+    <span class="status" id="status" aria-live="polite"></span>
+    <button class="hbtn install" id="installbtn" data-act="install" hidden>Установить</button>
+    <button class="hbtn" id="syncbtn" data-act="syncbtn" hidden><span class="dot"></span><span id="synctext"></span></button>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="diary" aria-selected="true">Дневник</button>
+      <button role="tab" data-tab="products" aria-selected="false">Продукты</button>
+      <button role="tab" data-tab="profile" aria-selected="false">Параметры</button>
+    </nav>
+  </div>
+</header>
+<main><div class="wrap" id="view"><div class="loading">Загружаю дневник…</div></div></main>
+<div id="modal-root"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
+const r0 = n => nf0.format(Math.round(n || 0));
+const r1 = n => nf1.format(Math.round((n || 0) * 10) / 10);
+const num = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(x) ? x : NaN; };
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').trim();
+const pad = n => String(n).padStart(2, '0');
+const isoDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const clone = o => JSON.parse(JSON.stringify(o));
+
+const MEAL_NAMES = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
+const ACTIVITY = [
+  [1.2, 'Минимальная: сидячая работа, почти без движения'],
+  [1.375, 'Лёгкая: 1–3 тренировки или прогулки в неделю'],
+  [1.55, 'Средняя: 3–5 тренировок в неделю'],
+  [1.725, 'Высокая: 6–7 тренировок в неделю'],
+  [1.9, 'Очень высокая: физическая работа плюс спорт'],
+];
+const GOALS = { lose: 'Худею', keep: 'Поддерживаю', gain: 'Набираю' };
+const DEFAULT_PROFILE = { sex: 'm', age: '', height: '', weight: '', activity: 1.375, goal: 'lose', manual: false, mKcal: '', mP: '', mF: '', mC: '' };
+
+/* Starter products: values per 100 g of edible part. Egg piece weight is without shell. */
+const EGG = { kcal: 157, p: 12.7, f: 11.5, c: 0.7 };
+const SEED = [
+  { id: 'seed-egg-cv', name: 'Яйцо куриное СВ (75 г и больше)', ...EGG, piece: 70, cat: 'cat-eggs' },
+  { id: 'seed-egg-c0', name: 'Яйцо куриное С0 (65–74,9 г)', ...EGG, piece: 61, cat: 'cat-eggs' },
+  { id: 'seed-egg-c1', name: 'Яйцо куриное С1 (55–64,9 г)', ...EGG, piece: 53, cat: 'cat-eggs' },
+  { id: 'seed-egg-c2', name: 'Яйцо куриное С2 (45–54,9 г)', ...EGG, piece: 44, cat: 'cat-eggs' },
+  { id: 'seed-egg-c3', name: 'Яйцо куриное С3 (35–44,9 г)', ...EGG, piece: 35, cat: 'cat-eggs' },
+  { id: 'seed-apple', name: 'Яблоко', kcal: 47, p: 0.4, f: 0.4, c: 9.8, piece: 160, cat: 'cat-fruit' },
+];
+const DEFAULT_CATS = [
+  { id: 'cat-eggs', name: 'Яйца' },
+  { id: 'cat-fruit', name: 'Фрукты и ягоды' },
+  { id: 'cat-veg', name: 'Овощи' },
+  { id: 'cat-meat', name: 'Мясо и птица' },
+  { id: 'cat-fish', name: 'Рыба' },
+  { id: 'cat-dairy', name: 'Молочное' },
+  { id: 'cat-grain', name: 'Крупы, макароны, хлеб' },
+  { id: 'cat-sweet', name: 'Сладкое' },
+];
+
+const defaultDay = () => ({ meals: [
+  { id: 'breakfast', type: 'breakfast', items: [] },
+  { id: 'lunch', type: 'lunch', items: [] },
+  { id: 'dinner', type: 'dinner', items: [] },
+] });
+
+/* ---------- state ---------- */
+const S = {
+  store: null,
+  profile: { ...DEFAULT_PROFILE },
+  products: {},
+  categories: [],
+  pdraft: null,
+  date: isoDate(new Date()),
+  day: defaultDay(),
+  tab: 'diary',
+  ui: { adding: null, query: '', picked: null, unit: 'g', qty: '', confirmDel: null, confirmProd: null, confirmCat: null, prodQuery: '', catFilter: 'all', addCat: 'all', importData: null, exportText: '', msg: '' },
+  modal: null,
+};
+try { const t = localStorage.getItem('kbju.tab'); if (t) S.tab = t; } catch (e) {}
+
+/* ---------- storage: one record on the device; every entry carries _t (edit time) so devices can merge ---------- */
+const DATA_KEY = 'kbju.data';
+const emptyData = () => ({ v: 1, profile: null, categories: null, products: {}, days: {} });
+function loadData() { try { const d = JSON.parse(localStorage.getItem(DATA_KEY)); if (d && d.products && d.days) return d; } catch (e) {} return emptyData(); }
+const strip = o => { const c = clone(o); delete c._t; return c; };
+
+function makeStore() {
+  let D = loadData();
+  const listeners = new Set();
+  const live = () => { const o = {}; for (const [id, p] of Object.entries(D.products)) if (!p.deleted) o[id] = strip(p); return o; };
+  const emit = () => { const l = live(); listeners.forEach(f => f(l)); };
+  const changed = () => { localStorage.setItem(DATA_KEY, JSON.stringify(D)); Sync.schedule(); };
+  return {
+    get data() { return D; },
+    replaceData(nd) { D = nd; localStorage.setItem(DATA_KEY, JSON.stringify(D)); emit(); },
+    async getProfile() { return D.profile ? strip(D.profile) : null; },
+    async saveProfile(p, t = Date.now()) { D.profile = { ...clone(p), _t: t }; changed(); },
+    async getCats() { return D.categories ? clone(D.categories.list) : null; },
+    async saveCats(list, t = Date.now()) { D.categories = { list: clone(list), _t: t }; changed(); },
+    async getProducts() { return live(); },
+    subscribeProducts(cb) { listeners.add(cb); cb(live()); return () => listeners.delete(cb); },
+    async saveProduct(p, t = Date.now()) { D.products[p.id] = { ...clone(p), _t: t }; changed(); emit(); },
+    async deleteProduct(id) { D.products[id] = { id, deleted: true, _t: Date.now() }; changed(); emit(); },
+    async getDay(d) { return D.days[d] ? strip(D.days[d]) : null; },
+    async saveDay(d, data) { D.days[d] = { ...clone(data), _t: Date.now() }; changed(); },
+    async allDays() { const o = {}; for (const [k, v] of Object.entries(D.days)) o[k] = strip(v); return o; },
+  };
+}
+
+/* Newer edit wins, entry by entry: profile, category list, each product, each day. */
+function mergeData(a, b) {
+  const newer = (x, y) => !x ? y : !y ? x : ((y._t || 0) > (x._t || 0) ? y : x);
+  const out = { v: 1, profile: newer(a.profile, b.profile) || null, categories: newer(a.categories, b.categories) || null, products: {}, days: {} };
+  for (const part of ['products', 'days']) {
+    const A = a[part] || {}, B = b[part] || {};
+    for (const k of new Set([...Object.keys(A), ...Object.keys(B)])) out[part][k] = newer(A[k], B[k]);
+  }
+  return out;
+}
+const stable = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((r, x) => (r[x] = v[x], r), {}) : v);
+
+/* ---------- Sync through a private GitHub repository: one data.json, every save is a commit ---------- */
+const Sync = (() => {
+  const API = 'https://api.github.com';
+  const FILE = 'data.json';
+  const CK = 'kbju.gh';
+  const defRepo = (window.KBJU_CONFIG && window.KBJU_CONFIG.dataRepo) || '';
+  const st = { state: 'off', at: null, err: '', repo: '' };
+  const subs = new Set();
+  let timer = null, running = null, again = false, started = false;
+  const hooks = { flush: async () => {}, applied: () => {} };
+
+  const set = patch => { Object.assign(st, patch); subs.forEach(f => f(st)); };
+  const cfg = () => { try { return JSON.parse(localStorage.getItem(CK)); } catch (e) { return null; } };
+  const saveCfg = c => { try { c ? localStorage.setItem(CK, JSON.stringify(c)) : localStorage.removeItem(CK); } catch (e) {} };
+  const err = (code, msg) => Object.assign(new Error(msg || code), { code });
+  const enc = str => { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+  const dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
+
+  async function gh(path, opts = {}, c = cfg()) {
+    if (!c) throw err('off');
+    const r = await fetch(API + path, { cache: 'no-store', ...opts, headers: {
+      Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: 'Bearer ' + c.token, ...(opts.headers || {}) } });
+    if (r.status === 401) throw err('relogin', 'Ключ GitHub не подходит или истёк.');
+    return r;
+  }
+  const httpErr = async r => { const j = await r.json().catch(() => ({})); return err('http', 'GitHub ответил ' + r.status + (j.message ? ': ' + j.message : '')); };
+  const filePath = c => `/repos/${c.repo}/contents/${FILE}`;
+
+  async function connect(token, repo) {
+    token = (token || '').trim(); repo = (repo || '').trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/+$/, '');
+    if (!token) return 'Вставьте ключ доступа.';
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return 'Репозиторий пишется так: логин/название, например shv4br1k/kbju-data.';
+    const c = { token, repo };
+    let r;
+    try { r = await gh(`/repos/${repo}`, {}, c); }
+    catch (e) { return e.code === 'relogin' ? 'GitHub не принял ключ. Проверьте, что он скопирован целиком и не истёк.' : 'Нет связи с GitHub. Проверьте интернет.'; }
+    if (r.status === 404) return 'Репозиторий не найден, или у ключа нет к нему доступа.';
+    if (!r.ok) return (await httpErr(r)).message;
+    const j = await r.json();
+    if (!j.private) return 'Этот репозиторий публичный, дневник был бы виден всем. Сделайте его приватным (Settings → Change visibility) или создайте новый приватный.';
+    saveCfg(c);
+    set({ state: 'idle', err: '', repo });
+    if (!started) listen();
+    now();
+    return '';
+  }
+
+  async function syncOnce() {
+    const c = cfg();
+    for (let i = 0; i < 4; i++) {
+      const r = await gh(filePath(c));
+      let remote = null, sha = null;
+      if (r.status !== 404) {
+        if (!r.ok) throw await httpErr(r);
+        const meta = await r.json();
+        sha = meta.sha;
+        let text = meta.content ? dec(meta.content) : null;
+        if (text === null) { const raw = await gh(filePath(c), { headers: { Accept: 'application/vnd.github.raw+json' } }); if (!raw.ok) throw await httpErr(raw); text = await raw.text(); }
+        try { remote = JSON.parse(text); } catch (e) { remote = null; }
+      }
+      const merged = remote ? mergeData(S.store.data, remote) : S.store.data;
+      if (stable(merged) !== stable(S.store.data)) { S.store.replaceData(mergeData(S.store.data, merged)); hooks.applied(); }
+      if (remote && stable(merged) === stable(remote)) return;
+      const up = await gh(filePath(c), { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Синхронизация ' + new Date().toISOString().slice(0, 16).replace('T', ' '), content: enc(JSON.stringify(merged)), ...(sha ? { sha } : {}) }) });
+      if (up.status === 409 || up.status === 422) continue;
+      if (up.status === 403 || up.status === 404) throw err('http', 'У ключа нет права записи в репозиторий. При создании ключа нужно выбрать Contents: Read and write.');
+      if (!up.ok) throw await httpErr(up);
+      return;
+    }
+    throw err('busy', 'Данные одновременно меняются с другого устройства, попробую позже.');
+  }
+
+  function now() {
+    if (!cfg() || st.state === 'relogin') return Promise.resolve();
+    if (running) { again = true; return running; }
+    clearTimeout(timer);
+    running = (async () => {
+      set({ state: 'syncing' });
+      try { await hooks.flush(); await syncOnce(); set({ state: 'ok', at: Date.now(), err: '' }); }
+      catch (e) {
+        if (e.code === 'relogin') set({ state: 'relogin', err: e.message });
+        else if (e.code === 'off') set({ state: 'off' });
+        else if (!navigator.onLine || e instanceof TypeError) set({ state: 'offline' });
+        else set({ state: 'error', err: e.message });
+      } finally {
+        running = null;
+        if (again) { again = false; schedule(2000); }
+      }
+    })();
+    return running;
+  }
+  function schedule(ms = 10000) {
+    if (!cfg() || st.state === 'relogin') return;
+    clearTimeout(timer); timer = setTimeout(now, ms);
+  }
+  function listen() {
+    started = true;
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { hooks.flush(); now(); } else now(); });
+    window.addEventListener('online', () => now());
+    setInterval(() => { if (!document.hidden) now(); }, 120000);
+  }
+  async function start(h) {
+    Object.assign(hooks, h);
+    const c = cfg();
+    if (!c) { set({ state: 'off', repo: '' }); return; }
+    set({ state: 'idle', repo: c.repo });
+    listen();
+    now();
+  }
+  async function replaceToken(token) {
+    const c = cfg(); if (!c) return 'Сначала подключите репозиторий.';
+    set({ state: 'idle' });
+    return connect(token, c.repo);
+  }
+  function disconnect() { saveCfg(null); clearTimeout(timer); set({ state: 'off', repo: '', at: null, err: '' }); }
+  return { start, now, schedule, connect, replaceToken, disconnect, defRepo, get st() { return st; }, onChange: f => subs.add(f) };
+})();
+
+/* ---------- save status ---------- */
+function setStatus(kind) {
+  const el = $('#status');
+  if (!el) return;
+  el.classList.toggle('err', kind === 'error');
+  el.textContent = kind === 'saving' ? 'Сохраняю…' : kind === 'saved' ? 'Сохранено' : kind === 'error' ? 'Не удалось сохранить, проверьте связь' : '';
+}
+
+let dayTimer = null, dayDirty = false, chain = Promise.resolve();
+function touchDay() { dayDirty = true; setStatus('saving'); clearTimeout(dayTimer); dayTimer = setTimeout(flushDay, 500); }
+function flushDay() {
+  clearTimeout(dayTimer);
+  if (!dayDirty) return chain;
+  dayDirty = false;
+  const date = S.date, data = clone(S.day);
+  chain = chain.then(() => S.store.saveDay(date, data)).then(() => setStatus('saved'), () => setStatus('error'));
+  return chain;
+}
+let profTimer = null;
+function touchProfile() {
+  setStatus('saving'); clearTimeout(profTimer);
+  profTimer = setTimeout(() => { const p = clone(S.profile); chain = chain.then(() => S.store.saveProfile(p)).then(() => setStatus('saved'), () => setStatus('error')); }, 600);
+}
+async function run(promise) {
+  setStatus('saving');
+  try { await promise; setStatus('saved'); return true; } catch (e) { setStatus('error'); return false; }
+}
+
+async function loadDay(date) {
+  await flushDay();
+  S.date = date;
+  let d = null;
+  try { d = await S.store.getDay(date); } catch (e) {}
+  if (S.date !== date) return;
+  S.day = d && Array.isArray(d.meals) ? d : defaultDay();
+}
+
+/* ---------- math ---------- */
+function itemTotals(it) { const k = (num(it.grams) || 0) / 100; return { kcal: it.kcal * k, p: it.p * k, f: it.f * k, c: it.c * k }; }
+function sum(items) { return items.reduce((a, it) => { const t = itemTotals(it); a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a; }, { kcal: 0, p: 0, f: 0, c: 0 }); }
+function dayTotals() { return sum(S.day.meals.flatMap(m => m.items)); }
+
+function computeGoal(pr) {
+  const age = num(pr.age), h = num(pr.height), w = num(pr.weight);
+  if (pr.manual) {
+    const k = num(pr.mKcal);
+    if (!(k > 0)) return null;
+    return { kcal: k, p: num(pr.mP) || 0, f: num(pr.mF) || 0, c: num(pr.mC) || 0, manual: true };
+  }
+  if (!(age > 0 && h > 0 && w > 0)) return null;
+  const bmr = 10 * w + 6.25 * h - 5 * age + (pr.sex === 'f' ? -161 : 5);
+  const tdee = bmr * (num(pr.activity) || 1.2);
+  const factor = pr.goal === 'lose' ? 0.85 : pr.goal === 'gain' ? 1.1 : 1;
+  const kcal = Math.round(tdee * factor / 10) * 10;
+  const p = Math.round(w * (pr.goal === 'keep' ? 1.5 : 1.8));
+  const f = Math.round(w * 0.9);
+  const c = Math.max(0, Math.round((kcal - p * 4 - f * 9) / 4));
+  return { kcal, p, f, c, bmr, tdee };
+}
+
+/* ---------- rendering ---------- */
+const view = () => $('#view');
+
+function render() {
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
+  view().innerHTML = (S.tab === 'products' ? productsHTML() : S.tab === 'profile' ? profileHTML() : diaryHTML());
+  renderModal();
+}
+
+function dayLabel() {
+  const d = parseDate(S.date), today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diff = Math.round((d - t0) / 86400000);
+  const rel = diff === 0 ? 'Сегодня' : diff === -1 ? 'Вчера' : diff === 1 ? 'Завтра' : '';
+  const full = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  return { rel, full, isToday: diff === 0 };
+}
+
+function diaryHTML() {
+  const L = dayLabel();
+  const meals = S.day.meals.map((m, i) => mealHTML(m, i) + `<div class="snack-gap"><button data-act="addSnack" data-pos="${i + 1}">+ перекус</button></div>`).join('');
+  return `
+  <section class="daybar">
+    <button class="iconbtn" data-act="prevDay" aria-label="Предыдущий день">‹</button>
+    <div class="dayname"><b>${esc(L.rel || L.full)}</b><span>${L.rel ? esc(L.full) : ''}${L.isToday ? '' : ` <button class="todaybtn" data-act="today">к сегодня</button>`}</span></div>
+    <button class="iconbtn" data-act="nextDay" aria-label="Следующий день">›</button>
+  </section>
+  <section class="summary" id="summary">${summaryHTML()}</section>
+  <section class="meals">${meals}</section>`;
+}
+
+function summaryHTML() {
+  const t = dayTotals(), g = computeGoal(S.profile);
+  if (!g) {
+    return `<div class="sum-top"><div class="kcal-big num">${r0(t.kcal)}<small>ккал</small></div></div>
+      <div class="macros">${macroHTML('p', 'Белки', t.p)}${macroHTML('f', 'Жиры', t.f)}${macroHTML('c', 'Углеводы', t.c)}</div>
+      <p class="goalhint">Заполните <button class="linkbtn" data-act="tab" data-tab="profile">параметры</button>, и здесь появится ваша норма на день.</p>`;
+  }
+  const left = g.kcal - t.kcal, over = left < 0;
+  return `<div class="sum-top">
+      <div class="kcal-big num">${r0(t.kcal)}<small>из ${r0(g.kcal)} ккал</small></div>
+      <div class="left ${over ? 'over' : ''}">${over ? 'Сверх нормы' : 'Осталось'} <b class="num">${r0(Math.abs(left))}</b> ккал</div>
+    </div>
+    <div class="bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, t.kcal / g.kcal * 100)}%"></i></div>
+    <div class="macros">${macroHTML('p', 'Белки', t.p, g.p)}${macroHTML('f', 'Жиры', t.f, g.f)}${macroHTML('c', 'Углеводы', t.c, g.c)}</div>`;
+}
+function macroHTML(cls, label, v, goal) {
+  if (!goal) return `<div class="macro ${cls}"><span class="lbl">${label}</span><span class="val num"><b>${r0(v)}</b> г</span></div>`;
+  const over = v > goal * 1.05;
+  return `<div class="macro ${cls}"><span class="lbl">${label}</span><span class="val num"><b>${r0(v)}</b> / ${r0(goal)} г</span>
+    <div class="bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, v / goal * 100)}%"></i></div></div>`;
+}
+
+function mealSumHTML(m) {
+  const t = sum(m.items);
+  return m.items.length ? `<b class="num">${r0(t.kcal)}</b> ккал · <span class="num">Б ${r0(t.p)} · Ж ${r0(t.f)} · У ${r0(t.c)}</span>` : '';
+}
+
+function pcsText(it) { return it.piece ? `≈ ${r1((num(it.grams) || 0) / it.piece)} шт` : ''; }
+
+function mealHTML(m, idx) {
+  const snack = m.type === 'snack';
+  const n = S.day.meals.length;
+  const items = m.items.length
+    ? `<ul class="items">${m.items.map(it => {
+        const t = itemTotals(it);
+        return `<li class="item">
+          <div class="iname"><div>${esc(it.name)}</div><small class="num" data-imac="${it.id}">Б ${r1(t.p)} · Ж ${r1(t.f)} · У ${r1(t.c)}</small></div>
+          <label class="qty"><input type="number" inputmode="decimal" min="0" step="1" id="g-${it.id}" value="${esc(it.grams)}" data-grams="${it.id}" data-meal="${m.id}" aria-label="Граммы: ${esc(it.name)}"> г${it.piece ? `<span class="pcs" data-ipcs="${it.id}">${pcsText(it)}</span>` : ''}</label>
+          <span class="ikcal" data-ikcal="${it.id}">${r0(t.kcal)}<small>ккал</small></span>
+          <button class="del" data-act="delItem" data-meal="${m.id}" data-item="${it.id}" aria-label="Убрать ${esc(it.name)}">×</button>
+        </li>`; }).join('')}</ul>`
+    : `<p class="empty">${snack ? 'Перекус пока пустой.' : 'Пока ничего не добавлено.'}</p>`;
+  const tools = snack ? `<div class="snack-tools">
+      <button class="mini" data-act="moveUp" data-meal="${m.id}" ${idx === 0 ? 'disabled' : ''} aria-label="Выше">↑</button>
+      <button class="mini" data-act="moveDown" data-meal="${m.id}" ${idx === n - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button>
+      <button class="mini" data-act="delSnack" data-meal="${m.id}" aria-label="Удалить перекус">✕</button></div>` : '';
+  const confirm = S.ui.confirmDel === m.id ? `<div class="confirm"><span>Удалить перекус вместе с продуктами (${m.items.length})?</span>
+      <button class="btn sm danger" data-act="delSnackYes" data-meal="${m.id}">Удалить</button><button class="btn sm" data-act="cancelConfirm">Отмена</button></div>` : '';
+  const add = S.ui.adding === m.id ? addPanelHTML() : `<button class="addbtn" data-act="openAdd" data-meal="${m.id}">+ продукт</button>`;
+  return `<article class="meal ${snack ? 'snack' : ''}" data-mealcard="${m.id}">
+    <div class="meal-head">
+      ${snack ? `<span class="handle" draggable="true" data-handle="${m.id}" title="Перетащите, чтобы переместить" aria-hidden="true">⋮⋮</span>` : ''}
+      <h3>${MEAL_NAMES[m.type]}</h3>
+      <span class="meal-sum" data-mealsum="${m.id}">${mealSumHTML(m)}</span>
+      ${tools}
+    </div>
+    ${confirm}${items}${add}
+  </article>`;
+}
+
+function addPanelHTML() {
+  return `<div class="addpanel">
+    <div class="addpanel-top">
+      <input class="field" id="add-search" type="search" placeholder="Найти продукт в базе…" autocomplete="off" value="${esc(S.ui.query)}">
+      <button class="btn" data-act="closeAdd">Готово</button>
+    </div>
+    <div id="add-results">${resultsHTML()}</div>
+  </div>`;
+}
+
+/* ---------- categories ---------- */
+const UNCAT = '_none';
+const hasCat = id => !!id && S.categories.some(c => c.id === id);
+const sortedCats = () => [...S.categories].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+const alpha = (a, b) => a.name.localeCompare(b.name, 'ru', { numeric: true });
+
+function filteredProducts(q, cat) {
+  const nq = norm(q);
+  return Object.values(S.products)
+    .filter(p => !nq || norm(p.name).includes(nq))
+    .filter(p => cat === 'all' || (cat === UNCAT ? !hasCat(p.cat) : p.cat === cat))
+    .sort(alpha);
+}
+/* Groups in display order: categories A→Я, «Без категории» last; products A→Я inside each. */
+function productGroups(q, cat) {
+  const list = filteredProducts(q, cat);
+  if (cat !== 'all') return [{ id: cat, name: '', items: list }];
+  const groups = sortedCats().map(c => ({ id: c.id, name: c.name, items: [] }));
+  const byId = Object.fromEntries(groups.map(g => [g.id, g]));
+  const other = { id: UNCAT, name: 'Без категории', items: [] };
+  list.forEach(p => (byId[p.cat] || other).items.push(p));
+  return [...groups, other].filter(g => g.items.length);
+}
+const visibleProducts = (q, cat) => productGroups(q, cat).filter(g => cat !== 'all' || !isCollapsed(g.id, q)).flatMap(g => g.items);
+
+/* Collapsed groups are remembered per browser; a search query opens everything. */
+let collapsed = new Set();
+try { collapsed = new Set(JSON.parse(localStorage.getItem('kbju.collapsed') || '[]')); } catch (e) {}
+const isCollapsed = (id, q) => !norm(q) && collapsed.has(id);
+function toggleGroup(id) {
+  collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
+  try { localStorage.setItem('kbju.collapsed', JSON.stringify([...collapsed])); } catch (e) {}
+}
+function groupHead(g, q) {
+  const open = !isCollapsed(g.id, q);
+  return `<button class="ghead" data-act="toggleGroup" data-gid="${esc(g.id)}" aria-expanded="${open}"><span class="caret" aria-hidden="true">▼</span>${esc(g.name)}<span class="gcount">${g.items.length}</span></button>`;
+}
+
+function chipsHTML(sel, act) {
+  const anyUncat = Object.values(S.products).some(p => !hasCat(p.cat));
+  const chip = (id, name) => `<button class="chip" data-act="${act}" data-cat="${esc(id)}" aria-pressed="${sel === id}">${esc(name)}</button>`;
+  return `<div class="chips" role="group" aria-label="Категория">${chip('all', 'Все')}${sortedCats().map(c => chip(c.id, c.name)).join('')}${anyUncat ? chip(UNCAT, 'Без категории') : ''}</div>`;
+}
+function saveCats() { return run(S.store.saveCats(clone(S.categories))); }
+function addCategory(name) {
+  name = name.trim(); if (!name) return null;
+  const same = S.categories.find(c => norm(c.name) === norm(name));
+  if (same) return same.id;
+  const c = { id: 'cat-' + newId(), name };
+  S.categories.push(c); saveCats();
+  return c.id;
+}
+
+function resultsHTML() {
+  const p = S.ui.picked && S.products[S.ui.picked];
+  if (p) {
+    const unit = p.piece ? S.ui.unit : 'g';
+    return `<div class="picked">
+      <div class="pname">${esc(p.name)}<small class="num">на 100 г: ${r1(p.kcal)} ккал · Б ${r1(p.p)} · Ж ${r1(p.f)} · У ${r1(p.c)}${p.piece ? ` · 1 шт ≈ ${r0(p.piece)} г` : ''}</small></div>
+      <div class="pickrow">
+        <input class="field" id="add-qty" type="number" inputmode="decimal" min="0" step="${unit === 'pc' ? '0.5' : '1'}" value="${esc(S.ui.qty)}" aria-label="Количество">
+        ${p.piece ? `<div class="seg" role="group" aria-label="Единица"><button data-act="unit" data-unit="g" aria-pressed="${unit === 'g'}">г</button><button data-act="unit" data-unit="pc" aria-pressed="${unit === 'pc'}">шт</button></div>` : '<span class="preview">г</span>'}
+        <span class="preview" id="add-preview">${previewText()}</span>
+      </div>
+      <div class="row-actions"><button class="btn primary" data-act="confirmAdd">Добавить</button><button class="btn" data-act="unpick">Другой продукт</button></div>
+    </div>`;
+  }
+  if (S.ui.addCat !== 'all' && S.ui.addCat !== UNCAT && !hasCat(S.ui.addCat)) S.ui.addCat = 'all';
+  const groups = productGroups(S.ui.query, S.ui.addCat);
+  const rows = groups.map(g => (S.ui.addCat === 'all' ? groupHead(g, S.ui.query) : '') +
+    (S.ui.addCat === 'all' && isCollapsed(g.id, S.ui.query) ? [] : g.items).map(x => `<button class="res" data-act="pick" data-pid="${esc(x.id)}"><span>${esc(x.name)}</span><small>${r0(x.kcal)} ккал/100 г</small></button>`).join('')).join('');
+  const none = !groups.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая.'}</p>` : '';
+  return `${chipsHTML(S.ui.addCat, 'addCat')}<div class="results">${rows}</div>${none}
+    <div class="row-actions"><button class="btn sm" data-act="newProduct" data-fromadd="1">+ Новый продукт${S.ui.query ? ` «${esc(S.ui.query)}»` : ''}</button></div>`;
+}
+
+function pickedGrams() {
+  const p = S.products[S.ui.picked];
+  const q = num(S.ui.qty);
+  if (!p || !(q > 0)) return 0;
+  return p.piece && S.ui.unit === 'pc' ? q * p.piece : q;
+}
+function previewText() {
+  const p = S.products[S.ui.picked]; const g = pickedGrams();
+  if (!p || !g) return '';
+  return `= <b class="num">${r0(p.kcal * g / 100)}</b> ккал${S.ui.unit === 'pc' && p.piece ? ` <span class="num">(${r0(g)} г)</span>` : ''}`;
+}
+
+/* Products tab */
+function productsHTML() {
+  return `<div class="toolbar">
+      <input class="field" id="prod-search" type="search" placeholder="Поиск по базе" value="${esc(S.ui.prodQuery)}" autocomplete="off">
+      <button class="btn" data-act="manageCats">Категории</button>
+      <button class="btn primary" data-act="newProduct">+ Новый продукт</button>
+    </div>
+    <div id="prod-chips">${chipsHTML(S.ui.catFilter, 'catFilter')}</div>
+    <p class="label-note">Пищевая ценность указана на 100 г, как на упаковке. Изменения здесь не меняют уже записанные дни.</p>
+    <section class="plist" id="plist">${plistHTML()}</section>`;
+}
+function plistHTML() {
+  if (S.ui.catFilter !== 'all' && S.ui.catFilter !== UNCAT && !hasCat(S.ui.catFilter)) S.ui.catFilter = 'all';
+  const groups = productGroups(S.ui.prodQuery, S.ui.catFilter);
+  if (!groups.length) return `<div class="prow"><span class="pn">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пустая. Добавьте первый продукт.'}</span></div>`;
+  if (S.ui.catFilter !== 'all') return groups[0].items.map(prowHTML).join('');
+  return groups.map(g => groupHead(g, S.ui.prodQuery) + (isCollapsed(g.id, S.ui.prodQuery) ? '' : g.items.map(prowHTML).join(''))).join('');
+}
+function prowHTML(p) {
+  return `<div class="prow">
+    <div class="pn">${esc(p.name)}${p.piece ? `<small class="num">1 шт ≈ ${r0(p.piece)} г</small>` : ''}</div>
+    <div class="facts"><span class="k"><em>ккал</em>${r1(p.kcal)}</span><span><em>Б</em>${r1(p.p)}</span><span><em>Ж</em>${r1(p.f)}</span><span><em>У</em>${r1(p.c)}</span></div>
+    <div class="acts"><button class="mini" data-act="editProduct" data-pid="${esc(p.id)}">Изменить</button><button class="mini" data-act="delProduct" data-pid="${esc(p.id)}" aria-label="Удалить ${esc(p.name)}">✕</button></div>
+    ${S.ui.confirmProd === p.id ? `<div class="confirm"><span>Удалить «${esc(p.name)}» из базы? Записи в дневнике останутся.</span><button class="btn sm danger" data-act="delProductYes" data-pid="${esc(p.id)}">Удалить</button><button class="btn sm" data-act="cancelConfirm">Отмена</button></div>` : ''}
+  </div>`;
+}
+
+/* Profile tab */
+function fmtTime(ts) { return ts ? new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; }
+function syncCardHTML() {
+  const st = Sync.st;
+  let body;
+  if (st.state === 'off') body = `<p class="fine">Дневник будет храниться в вашем приватном репозитории на GitHub, и на телефоне с компьютером он будет одинаковым. На каждом устройстве ключ вводится один раз.</p>
+      <label class="f"><span>Репозиторий для данных</span><input class="field" id="gh-repo" value="${esc(S.ui.ghRepo ?? Sync.defRepo)}" placeholder="логин/название" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="f"><span>Ключ доступа GitHub</span><input class="field" id="gh-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
+      ${S.ui.ghErr ? `<p class="err">${esc(S.ui.ghErr)}</p>` : ''}
+      <div class="row-actions"><button class="btn primary" data-act="ghConnect" ${S.ui.ghBusy ? 'disabled' : ''}>${S.ui.ghBusy ? 'Проверяю…' : 'Подключить'}</button></div>`;
+  else if (st.state === 'relogin') body = `<p class="fine">GitHub больше не принимает ключ (возможно, истёк срок). Создайте новый ключ и вставьте его сюда. Данные на устройстве никуда не делись.</p>
+      <label class="f"><span>Новый ключ доступа</span><input class="field" id="gh-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
+      ${S.ui.ghErr ? `<p class="err">${esc(S.ui.ghErr)}</p>` : ''}
+      <div class="row-actions"><button class="btn primary" data-act="ghToken" ${S.ui.ghBusy ? 'disabled' : ''}>Сохранить ключ</button><button class="btn" data-act="ghOff">Отключить</button></div>`;
+  else {
+    const line = st.state === 'syncing' ? 'Синхронизирую…' : st.state === 'offline' ? 'Нет интернета. Изменения сохранены на устройстве и уйдут на GitHub позже.'
+      : st.state === 'error' ? 'Ошибка: ' + st.err : st.at ? 'Последняя синхронизация: ' + fmtTime(st.at) : 'Подключено.';
+    body = `<p class="fine">Репозиторий: <b>${esc(st.repo)}</b><br>${esc(line)}</p>
+      <div class="row-actions"><button class="btn" data-act="syncNow" ${st.state === 'syncing' ? 'disabled' : ''}>Синхронизировать сейчас</button><button class="btn" data-act="ghOff">Отключить</button></div>`;
+  }
+  return `<h2>Синхронизация</h2>${body}`;
+}
+function renderSync() {
+  const st = Sync.st, btn = $('#syncbtn');
+  if (btn) {
+    btn.hidden = false;
+    btn.dataset.s = st.state;
+    $('#synctext').textContent = { off: 'Синхр. выкл.', relogin: 'Нужен новый ключ', syncing: 'Синхронизация…', ok: 'Синхронизировано',
+      offline: 'Без сети', error: 'Ошибка синхр.', idle: 'Синхр.' }[st.state] || '';
+    btn.title = st.at ? 'Последняя синхронизация: ' + fmtTime(st.at) : '';
+  }
+  const card = $('#synccard');
+  if (card && !(card.contains(document.activeElement) && /INPUT/.test(document.activeElement.tagName))) card.innerHTML = syncCardHTML();
+}
+/* Data arrived from another device: refresh what is on screen without fighting the user's typing. */
+async function onRemoteData() {
+  const prof = await S.store.getProfile();
+  if (prof) { const dirty = profDirty(); S.profile = { ...DEFAULT_PROFILE, ...prof }; if (!dirty) S.pdraft = null; }
+  const cats = await S.store.getCats(); if (cats) S.categories = cats;
+  if (!dayDirty) { const d = await S.store.getDay(S.date); S.day = d && Array.isArray(d.meals) ? d : defaultDay(); }
+  const a = document.activeElement;
+  if (S.modal || S.ui.adding || (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) return;
+  render();
+}
+const profDirty = () => !!S.pdraft && JSON.stringify(S.pdraft) !== JSON.stringify(S.profile);
+function applyBarHTML() {
+  const dirty = profDirty();
+  return `<div class="applybar ${dirty ? '' : 'idle'}">
+    <span>${dirty ? 'Есть изменения. Норма в дневнике обновится после применения.' : 'Дневник считает норму по этим параметрам.'}</span>
+    ${dirty ? '<button class="btn sm" data-act="cancelProf">Отменить</button>' : ''}
+    <button class="btn primary" data-act="applyProf" ${dirty ? '' : 'disabled'}>Применить</button>
+  </div>`;
+}
+function profileHTML() {
+  if (!S.pdraft) S.pdraft = clone(S.profile);
+  const p = S.pdraft;
+  const val = k => esc(p[k] ?? '');
+  return `<section class="card">
+      <h2>Мои параметры</h2>
+      <div class="f"><span>Пол</span><div class="seg" role="group"><button data-act="sex" data-v="m" aria-pressed="${p.sex !== 'f'}">Мужской</button><button data-act="sex" data-v="f" aria-pressed="${p.sex === 'f'}">Женский</button></div></div>
+      <div class="grid2">
+        <label class="f"><span>Возраст, лет</span><input class="field num" id="pf-age" data-prof="age" type="number" inputmode="numeric" min="10" max="100" value="${val('age')}"></label>
+        <label class="f"><span>Рост, см</span><input class="field num" id="pf-height" data-prof="height" type="number" inputmode="decimal" min="100" max="250" value="${val('height')}"></label>
+        <label class="f"><span>Вес, кг</span><input class="field num" id="pf-weight" data-prof="weight" type="number" inputmode="decimal" min="30" max="300" step="0.1" value="${val('weight')}"></label>
+      </div>
+      <label class="f"><span>Активность</span><select class="field" id="pf-activity" data-prof="activity">${ACTIVITY.map(([v, t]) => `<option value="${v}" ${Number(p.activity) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <div class="f"><span>Режим</span><div class="seg goalseg" role="group">${Object.entries(GOALS).map(([k, t]) => `<button data-act="goal" data-v="${k}" aria-pressed="${p.goal === k}">${t}</button>`).join('')}</div></div>
+      <div id="applybar">${applyBarHTML()}</div>
+    </section>
+    <section class="card">
+      <h2>Норма на день</h2>
+      <div id="goal-result">${goalResultHTML()}</div>
+      <label class="check"><input type="checkbox" id="pf-manual" data-prof="manual" ${p.manual ? 'checked' : ''}> Задать норму вручную</label>
+      ${p.manual ? `<div class="grid2">
+        <label class="f"><span>Калории</span><input class="field num" id="pf-mkcal" data-prof="mKcal" type="number" inputmode="numeric" value="${val('mKcal')}"></label>
+        <label class="f"><span>Белки, г</span><input class="field num" id="pf-mp" data-prof="mP" type="number" inputmode="numeric" value="${val('mP')}"></label>
+        <label class="f"><span>Жиры, г</span><input class="field num" id="pf-mf" data-prof="mF" type="number" inputmode="numeric" value="${val('mF')}"></label>
+        <label class="f"><span>Углеводы, г</span><input class="field num" id="pf-mc" data-prof="mC" type="number" inputmode="numeric" value="${val('mC')}"></label>
+      </div>` : ''}
+    </section>
+    <section class="card" id="synccard">${syncCardHTML()}</section>
+    <section class="card">
+      <h2>Резервная копия</h2>
+      <p class="fine">Файл со всеми продуктами, днями и параметрами. Пригодится для переноса или на всякий случай.</p>
+      <div class="row-actions">
+        <button class="btn" data-act="export">Сохранить копию</button>
+        <label class="btn" for="import-file">Загрузить из файла</label>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+      </div>
+      ${S.ui.importData ? `<div class="confirm"><span>В файле ${S.ui.importData.products.length} продуктов и ${Object.keys(S.ui.importData.days).length} дней. Совпадающие продукты и дни будут заменены, параметры тоже.</span><button class="btn sm primary" data-act="importYes">Загрузить</button><button class="btn sm" data-act="importNo">Отмена</button></div>` : ''}
+      ${S.ui.exportText ? `<p class="fine">Не получилось скачать файл. Скопируйте текст и сохраните его в файл .json:</p><textarea class="field" id="export-text" readonly>${esc(S.ui.exportText)}</textarea><div class="row-actions"><button class="btn sm" data-act="copyExport">Скопировать</button></div>` : ''}
+      ${S.ui.msg ? `<p class="fine">${esc(S.ui.msg)}</p>` : ''}
+    </section>`;
+}
+function goalResultHTML() {
+  const pr = S.pdraft || S.profile;
+  const g = computeGoal(pr);
+  if (!g) return `<p class="fine">${pr.manual ? 'Введите калории, чтобы задать норму.' : 'Укажите возраст, рост и вес — норма посчитается автоматически.'}</p>`;
+  const sub = g.manual ? 'Своя норма' : GOALS[pr.goal];
+  return `<div class="result">
+      <div class="stat main"><span>${esc(sub)}</span><b>${r0(g.kcal)}</b> ккал</div>
+      <div class="stat p"><span>Белки</span><b>${r0(g.p)}</b> г</div>
+      <div class="stat f"><span>Жиры</span><b>${r0(g.f)}</b> г</div>
+      <div class="stat c"><span>Углеводы</span><b>${r0(g.c)}</b> г</div>
+    </div>
+    ${g.manual ? '' : `<p class="fine num">Базовый обмен ${r0(g.bmr)} ккал, с учётом активности ${r0(g.tdee)} ккал (формула Миффлина — Сан Жеора). ${pr.goal === 'lose' ? 'Для похудения минус 15%.' : pr.goal === 'gain' ? 'Для набора плюс 10%.' : ''} Белки ${pr.goal === 'keep' ? '1,5' : '1,8'} г и жиры 0,9 г на кг веса, остальное — углеводы.</p>`}`;
+}
+
+/* Modal: product form */
+function renderModal() {
+  const root = $('#modal-root');
+  if (!S.modal) { root.innerHTML = ''; return; }
+  if (S.modal.kind === 'cats') { root.innerHTML = catsModalHTML(); return; }
+  const m = S.modal, p = m.data;
+  const catSel = p.cat === '__new' ? '__new' : hasCat(p.cat) ? p.cat : '';
+  root.innerHTML = `<div class="overlay" data-act="overlay">
+    <form class="modal" id="prod-form" role="dialog" aria-modal="true" aria-labelledby="pm-title">
+      <h2 id="pm-title">${m.editId ? 'Изменить продукт' : 'Новый продукт'}</h2>
+      <label class="f"><span>Название</span><input class="field" id="pm-name" value="${esc(p.name)}" autocomplete="off" required></label>
+      <label class="f"><span>Категория</span><select class="field" id="pm-cat">
+        <option value="" ${catSel === '' ? 'selected' : ''}>Без категории</option>
+        ${sortedCats().map(c => `<option value="${esc(c.id)}" ${catSel === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        <option value="__new" ${catSel === '__new' ? 'selected' : ''}>+ Новая категория…</option>
+      </select></label>
+      <label class="f" id="pm-newcat-wrap" ${catSel === '__new' ? '' : 'hidden'}><span>Название новой категории</span><input class="field" id="pm-newcat" value="${esc(p.newcat || '')}" autocomplete="off"></label>
+      <div class="label100">
+        <div class="lh">Пищевая ценность в 100 г</div>
+        <div class="grid4">
+          <label class="f"><span>Ккал</span><input class="field" id="pm-kcal" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.kcal)}"></label>
+          <label class="f"><span>Белки</span><input class="field" id="pm-p" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.p)}"></label>
+          <label class="f"><span>Жиры</span><input class="field" id="pm-f" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.f)}"></label>
+          <label class="f"><span>Углев.</span><input class="field" id="pm-c" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.c)}"></label>
+        </div>
+      </div>
+      <label class="f"><span>Вес 1 штуки, г (необязательно)</span><input class="field" id="pm-piece" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.piece ?? '')}" placeholder="например, для яиц или фруктов"></label>
+      ${m.editId ? '<p class="fine">Уже записанные дни сохранят старые значения.</p>' : ''}
+      <p class="err" id="pm-err" ${m.err ? '' : 'hidden'}>${esc(m.err || '')}</p>
+      <div class="row-actions"><button class="btn primary" type="submit">Сохранить</button><button class="btn" type="button" data-act="closeModal">Отмена</button></div>
+    </form></div>`;
+  setTimeout(() => { const el = $('#pm-name'); el && !m.focused && (el.focus(), m.focused = true); }, 0);
+}
+
+function catsModalHTML() {
+  const count = id => Object.values(S.products).filter(p => p.cat === id).length;
+  const rows = sortedCats().map(c => `<div class="catrow">
+      <input class="field" id="cat-${esc(c.id)}" data-catname="${esc(c.id)}" value="${esc(c.name)}" aria-label="Название категории">
+      <span class="fine num" title="Продуктов в категории">${count(c.id)}</span>
+      <button class="mini" type="button" data-act="delCat" data-cid="${esc(c.id)}" aria-label="Удалить ${esc(c.name)}">✕</button>
+    </div>
+    ${S.ui.confirmCat === c.id ? `<div class="confirm"><span>Удалить «${esc(c.name)}»? Продукты (${count(c.id)}) останутся в базе без категории.</span><button class="btn sm danger" type="button" data-act="delCatYes" data-cid="${esc(c.id)}">Удалить</button><button class="btn sm" type="button" data-act="cancelConfirm">Отмена</button></div>` : ''}`).join('');
+  return `<div class="overlay" data-act="overlay">
+    <form class="modal" id="cats-form" role="dialog" aria-modal="true" aria-labelledby="cm-title">
+      <h2 id="cm-title">Категории</h2>
+      <p class="fine">Чтобы переименовать, исправьте название в поле. Категории и продукты в них сортируются по алфавиту.</p>
+      <div class="catlist">${rows || '<p class="empty">Категорий пока нет.</p>'}</div>
+      <div class="catrow"><input class="field" id="cat-new" placeholder="Новая категория" autocomplete="off"><button class="btn" type="submit">Добавить</button></div>
+      <div class="row-actions"><button class="btn primary" type="button" data-act="closeModal">Готово</button></div>
+    </form></div>`;
+}
+function closeModal() {
+  const wasCats = S.modal && S.modal.kind === 'cats';
+  S.modal = null; S.ui.confirmCat = null;
+  if (wasCats) render(); else renderModal();
+}
+
+/* ---------- actions ---------- */
+function findMeal(id) { return S.day.meals.find(m => m.id === id); }
+
+function openAdd(mealId) {
+  S.ui.adding = mealId; S.ui.query = ''; S.ui.picked = null; S.ui.qty = ''; S.ui.addCat = 'all';
+  render(); focus('#add-search');
+}
+function focus(sel) { setTimeout(() => { const el = $(sel); if (el) { el.focus(); if (el.select && el.type !== 'search') el.select(); } }, 0); }
+
+function pick(pid) {
+  const p = S.products[pid]; if (!p) return;
+  S.ui.picked = pid;
+  S.ui.unit = p.piece ? 'pc' : 'g';
+  S.ui.qty = p.piece ? '1' : '100';
+  $('#add-results').innerHTML = resultsHTML();
+  focus('#add-qty');
+}
+
+function confirmAdd() {
+  const p = S.products[S.ui.picked], meal = findMeal(S.ui.adding), g = pickedGrams();
+  if (!p || !meal || !g) { focus('#add-qty'); return; }
+  meal.items.push({ id: newId(), pid: p.id, name: p.name, grams: Math.round(g * 10) / 10, kcal: p.kcal, p: p.p, f: p.f, c: p.c, piece: p.piece || null });
+  touchDay();
+  S.ui.query = ''; S.ui.picked = null; S.ui.qty = '';
+  render(); focus('#add-search');
+}
+
+function moveMeal(id, to) {
+  const arr = S.day.meals, from = arr.findIndex(m => m.id === id);
+  if (from < 0) return;
+  const [m] = arr.splice(from, 1);
+  arr.splice(Math.max(0, Math.min(arr.length, to)), 0, m);
+  touchDay(); render();
+}
+
+function openProductModal(editId, fromAdd) {
+  const filt = fromAdd ? S.ui.addCat : S.ui.catFilter;
+  const src = editId ? S.products[editId] : { name: fromAdd ? S.ui.query : '', kcal: '', p: '', f: '', c: '', piece: '', cat: hasCat(filt) ? filt : '' };
+  S.modal = { kind: 'product', editId, fromAdd: !!fromAdd, data: { ...src }, err: '' };
+  renderModal();
+}
+
+async function saveProductForm() {
+  const m = S.modal;
+  const name = $('#pm-name').value.trim();
+  const vals = ['kcal', 'p', 'f', 'c'].map(k => num($('#pm-' + k).value));
+  const pieceRaw = $('#pm-piece').value.trim();
+  const piece = pieceRaw ? num(pieceRaw) : null;
+  const catVal = $('#pm-cat').value, newCat = $('#pm-newcat').value.trim();
+  m.data = { name, kcal: $('#pm-kcal').value, p: $('#pm-p').value, f: $('#pm-f').value, c: $('#pm-c').value, piece: pieceRaw, cat: catVal, newcat: newCat };
+  let err = '';
+  if (!name) err = 'Введите название.';
+  else if (catVal === '__new' && !newCat) err = 'Введите название новой категории или выберите существующую.';
+  else if (vals.some(v => !(v >= 0))) err = 'Заполните калории, белки, жиры и углеводы числами (можно 0).';
+  else if (pieceRaw && !(piece > 0)) err = 'Вес штуки должен быть больше нуля или оставьте поле пустым.';
+  if (err) { m.err = err; const e = $('#pm-err'); e.textContent = err; e.hidden = false; return; }
+  const cat = catVal === '__new' ? addCategory(newCat) : catVal;
+  const prod = { id: m.editId || newId(), name, kcal: vals[0], p: vals[1], f: vals[2], c: vals[3], piece: piece || null, cat: cat || '' };
+  S.products[prod.id] = prod;
+  const fromAdd = m.fromAdd;
+  S.modal = null;
+  if (fromAdd && S.ui.adding) { S.ui.query = ''; render(); pick(prod.id); }
+  else render();
+  await run(S.store.saveProduct(prod));
+}
+
+async function exportData() {
+  S.ui.msg = '';
+  let days = {};
+  try { await flushDay(); days = await S.store.allDays(); } catch (e) { S.ui.msg = 'Не получилось собрать дни. Попробуйте ещё раз.'; render(); return; }
+  const data = { app: 'kbju-diary', version: 2, exportedAt: new Date().toISOString(), profile: S.profile, categories: S.categories, products: Object.values(S.products), days };
+  const text = JSON.stringify(data, null, 1);
+  const filename = `kbju-backup-${S.date}.json`;
+  try {
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    S.ui.msg = 'Копия сохранена в загрузки.'; render();
+  } catch (e) { S.ui.exportText = text; render(); }
+}
+
+function readImport(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      if (!d || !Array.isArray(d.products) || typeof d.days !== 'object') throw new Error();
+      S.ui.importData = { profile: d.profile || null, categories: Array.isArray(d.categories) ? d.categories.filter(c => c && c.id && c.name) : [], products: d.products.filter(p => p && p.id && p.name), days: d.days || {} };
+      S.ui.msg = '';
+    } catch (e) { S.ui.importData = null; S.ui.msg = 'Этот файл не похож на копию дневника.'; }
+    render();
+  };
+  reader.readAsText(file);
+}
+
+async function applyImport() {
+  const d = S.ui.importData; if (!d) return;
+  S.ui.importData = null; S.ui.msg = 'Загружаю…'; render();
+  let ok = true;
+  setStatus('saving');
+  try {
+    if (d.profile) { S.profile = { ...DEFAULT_PROFILE, ...d.profile, seeded: true }; S.pdraft = null; await S.store.saveProfile(S.profile); }
+    if (d.categories.length) {
+      const byId = Object.fromEntries(S.categories.map(c => [c.id, c]));
+      d.categories.forEach(c => { byId[String(c.id)] = { id: String(c.id), name: String(c.name) }; });
+      S.categories = Object.values(byId);
+      await S.store.saveCats(clone(S.categories));
+    }
+    for (const p of d.products) await S.store.saveProduct({ id: String(p.id), name: String(p.name), kcal: +p.kcal || 0, p: +p.p || 0, f: +p.f || 0, c: +p.c || 0, piece: +p.piece || null, cat: p.cat ? String(p.cat) : '' });
+    for (const [date, day] of Object.entries(d.days)) if (/^\d{4}-\d{2}-\d{2}$/.test(date) && day && Array.isArray(day.meals)) await S.store.saveDay(date, day);
+    setStatus('saved');
+  } catch (e) { ok = false; setStatus('error'); }
+  if (ok) await loadDay(S.date);
+  S.ui.msg = ok ? 'Копия загружена.' : 'Загрузилось не всё. Проверьте связь и попробуйте снова.';
+  render();
+}
+
+function shiftDay(delta) {
+  const d = parseDate(S.date); d.setDate(d.getDate() + delta);
+  goDay(isoDate(d));
+}
+async function goDay(date) {
+  S.ui.adding = null; S.ui.confirmDel = null;
+  await loadDay(date); render();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-act], [data-tab]');
+  if (!t) return;
+  if (t.matches('.tabs [data-tab]') || t.dataset.act === 'tab') {
+    S.tab = t.dataset.tab; S.ui.adding = null;
+    try { localStorage.setItem('kbju.tab', S.tab); } catch (err) {}
+    render(); window.scrollTo(0, 0); return;
+  }
+  const a = t.dataset.act, mid = t.dataset.meal;
+  switch (a) {
+    case 'prevDay': shiftDay(-1); break;
+    case 'nextDay': shiftDay(1); break;
+    case 'today': goDay(isoDate(new Date())); break;
+    case 'openAdd': openAdd(mid); break;
+    case 'closeAdd': S.ui.adding = null; render(); break;
+    case 'pick': pick(t.dataset.pid); break;
+    case 'unpick': S.ui.picked = null; $('#add-results').innerHTML = resultsHTML(); focus('#add-search'); break;
+    case 'unit': {
+      const p = S.products[S.ui.picked]; const g = pickedGrams();
+      S.ui.unit = t.dataset.unit;
+      if (g && p && p.piece) S.ui.qty = String(S.ui.unit === 'pc' ? Math.round(g / p.piece * 2) / 2 || 1 : Math.round(g));
+      $('#add-results').innerHTML = resultsHTML(); focus('#add-qty'); break;
+    }
+    case 'confirmAdd': confirmAdd(); break;
+    case 'delItem': { const m = findMeal(mid); if (m) { m.items = m.items.filter(i => i.id !== t.dataset.item); touchDay(); render(); } break; }
+    case 'addSnack': {
+      const id = 'snack-' + newId();
+      S.day.meals.splice(Number(t.dataset.pos), 0, { id, type: 'snack', items: [] });
+      touchDay(); openAdd(id); break;
+    }
+    case 'moveUp': moveMeal(mid, S.day.meals.findIndex(m => m.id === mid) - 1); break;
+    case 'moveDown': moveMeal(mid, S.day.meals.findIndex(m => m.id === mid) + 1); break;
+    case 'delSnack': {
+      const m = findMeal(mid);
+      if (m && m.items.length) { S.ui.confirmDel = mid; render(); }
+      else { S.day.meals = S.day.meals.filter(x => x.id !== mid); if (S.ui.adding === mid) S.ui.adding = null; touchDay(); render(); }
+      break;
+    }
+    case 'delSnackYes': S.day.meals = S.day.meals.filter(x => x.id !== mid); S.ui.confirmDel = null; if (S.ui.adding === mid) S.ui.adding = null; touchDay(); render(); break;
+    case 'cancelConfirm': S.ui.confirmDel = null; S.ui.confirmProd = null; render(); break;
+    case 'newProduct': openProductModal(null, t.dataset.fromadd === '1'); break;
+    case 'editProduct': openProductModal(t.dataset.pid, false); break;
+    case 'delProduct': S.ui.confirmProd = t.dataset.pid; $('#plist').innerHTML = plistHTML(); break;
+    case 'delProductYes': { const id = t.dataset.pid; delete S.products[id]; S.ui.confirmProd = null; $('#plist').innerHTML = plistHTML(); run(S.store.deleteProduct(id)); break; }
+    case 'closeModal': closeModal(); break;
+    case 'overlay': if (e.target === t) closeModal(); break;
+    case 'catFilter': S.ui.catFilter = t.dataset.cat; $('#prod-chips').innerHTML = chipsHTML(S.ui.catFilter, 'catFilter'); $('#plist').innerHTML = plistHTML(); break;
+    case 'addCat': S.ui.addCat = t.dataset.cat; $('#add-results').innerHTML = resultsHTML(); break;
+    case 'toggleGroup': {
+      toggleGroup(t.dataset.gid);
+      const inAdd = !!t.closest('#add-results');
+      if (inAdd) $('#add-results').innerHTML = resultsHTML(); else $('#plist').innerHTML = plistHTML();
+      const again = (inAdd ? $('#add-results') : $('#plist')).querySelector(`[data-gid="${CSS.escape(t.dataset.gid)}"]`);
+      if (again) again.focus();
+      break;
+    }
+    case 'manageCats': S.modal = { kind: 'cats' }; S.ui.confirmCat = null; renderModal(); focus('#cat-new'); break;
+    case 'delCat': S.ui.confirmCat = t.dataset.cid; renderModal(); break;
+    case 'delCatYes': {
+      const id = t.dataset.cid;
+      S.categories = S.categories.filter(c => c.id !== id);
+      S.ui.confirmCat = null; renderModal();
+      saveCats();
+      for (const p of Object.values(S.products)) if (p.cat === id) { const np = { ...p, cat: '' }; S.products[p.id] = np; run(S.store.saveProduct(np)); }
+      renderModal();
+      break;
+    }
+    case 'sex': S.pdraft.sex = t.dataset.v; render(); break;
+    case 'goal': S.pdraft.goal = t.dataset.v; render(); break;
+    case 'applyProf': S.profile = clone(S.pdraft); touchProfile(); render(); break;
+    case 'cancelProf': S.pdraft = clone(S.profile); render(); break;
+    case 'export': exportData(); break;
+    case 'ghConnect': case 'ghToken': {
+      const token = $('#gh-token')?.value || '', repo = $('#gh-repo')?.value;
+      if (repo !== undefined) S.ui.ghRepo = repo;
+      S.ui.ghBusy = true; S.ui.ghErr = ''; $('#synccard').innerHTML = syncCardHTML();
+      const msg = a === 'ghConnect' ? await Sync.connect(token, repo) : await Sync.replaceToken(token);
+      S.ui.ghBusy = false; S.ui.ghErr = msg;
+      if (document.activeElement) document.activeElement.blur();
+      $('#synccard') && ($('#synccard').innerHTML = syncCardHTML());
+      break;
+    }
+    case 'ghOff': S.ui.ghErr = ''; Sync.disconnect(); break;
+    case 'syncNow': Sync.now(); break;
+    case 'syncbtn': {
+      const st = Sync.st.state;
+      if (st === 'off' || st === 'relogin' || st === 'error') { S.tab = 'profile'; render(); setTimeout(() => $('#synccard')?.scrollIntoView({ block: 'center' }), 0); }
+      else Sync.now();
+      break;
+    }
+    case 'install': if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; $('#installbtn').hidden = true; }); } break;
+    case 'importYes': applyImport(); break;
+    case 'importNo': S.ui.importData = null; render(); break;
+    case 'copyExport': {
+      const ta = $('#export-text');
+      try { await navigator.clipboard.writeText(S.ui.exportText); t.textContent = 'Скопировано'; }
+      catch (err) { ta.focus(); ta.select(); t.textContent = 'Выделено — нажмите Ctrl+C'; }
+      break;
+    }
+  }
+});
+
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.grams) {
+    const m = findMeal(t.dataset.meal); const it = m && m.items.find(i => i.id === t.dataset.grams);
+    if (!it) return;
+    const v = num(t.value); it.grams = v >= 0 ? v : 0;
+    const tt = itemTotals(it);
+    const k = $(`[data-ikcal="${it.id}"]`); if (k) k.innerHTML = `${r0(tt.kcal)}<small>ккал</small>`;
+    const mac = $(`[data-imac="${it.id}"]`); if (mac) mac.textContent = `Б ${r1(tt.p)} · Ж ${r1(tt.f)} · У ${r1(tt.c)}`;
+    const pc = $(`[data-ipcs="${it.id}"]`); if (pc) pc.textContent = pcsText(it);
+    const ms = $(`[data-mealsum="${m.id}"]`); if (ms) ms.innerHTML = mealSumHTML(m);
+    $('#summary').innerHTML = summaryHTML();
+    touchDay();
+  } else if (t.id === 'add-search') {
+    S.ui.query = t.value; S.ui.picked = null;
+    $('#add-results').innerHTML = resultsHTML();
+  } else if (t.id === 'add-qty') {
+    S.ui.qty = t.value; const pv = $('#add-preview'); if (pv) pv.innerHTML = previewText();
+  } else if (t.id === 'prod-search') {
+    S.ui.prodQuery = t.value; $('#plist').innerHTML = plistHTML();
+  } else if (t.dataset.prof && t.type !== 'checkbox' && S.pdraft) {
+    S.pdraft[t.dataset.prof] = t.dataset.prof === 'activity' ? Number(t.value) : t.value;
+    $('#goal-result').innerHTML = goalResultHTML(); $('#applybar').innerHTML = applyBarHTML();
+  }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'pf-manual') {
+    S.pdraft.manual = t.checked;
+    if (t.checked && !S.pdraft.mKcal) { const g = computeGoal({ ...S.pdraft, manual: false }); if (g) Object.assign(S.pdraft, { mKcal: g.kcal, mP: g.p, mF: g.f, mC: g.c }); }
+    render();
+  } else if (t.id === 'pf-activity') {
+    S.pdraft.activity = Number(t.value); $('#goal-result').innerHTML = goalResultHTML(); $('#applybar').innerHTML = applyBarHTML();
+  } else if (t.id === 'pm-cat') {
+    const w = $('#pm-newcat-wrap'); w.hidden = t.value !== '__new'; if (!w.hidden) focus('#pm-newcat');
+  } else if (t.dataset.catname) {
+    const c = S.categories.find(x => x.id === t.dataset.catname);
+    const v = t.value.trim();
+    if (c && v && v !== c.name) { c.name = v; saveCats(); } else if (c) t.value = c.name;
+  } else if (t.id === 'import-file' && t.files && t.files[0]) {
+    readImport(t.files[0]); t.value = '';
+  } else if (t.dataset.grams) {
+    t.value = String(Math.round((num(t.value) || 0) * 10) / 10);
+  }
+});
+
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.key === 'Escape') {
+    if (S.modal) { closeModal(); return; }
+    if (S.ui.adding) { S.ui.adding = null; render(); return; }
+  }
+  if (e.key !== 'Enter') return;
+  if (t.id === 'add-search') { e.preventDefault(); const first = visibleProducts(S.ui.query, S.ui.addCat)[0]; if (first) pick(first.id); }
+  else if (t.dataset.catname) { e.preventDefault(); t.blur(); }
+  else if (t.id === 'add-qty') { e.preventDefault(); confirmAdd(); }
+  else if (t.dataset.grams) { t.blur(); }
+});
+
+document.addEventListener('submit', e => {
+  if (e.target.id === 'prod-form') { e.preventDefault(); saveProductForm(); }
+  else if (e.target.id === 'cats-form') {
+    e.preventDefault();
+    const inp = $('#cat-new'); if (!inp.value.trim()) { inp.focus(); return; }
+    addCategory(inp.value); renderModal(); focus('#cat-new');
+  }
+});
+
+/* Drag & drop for snacks (mouse). Arrows ↑↓ cover touch screens. */
+let dragId = null;
+document.addEventListener('dragstart', e => {
+  const h = e.target.closest && e.target.closest('[data-handle]');
+  if (!h) return;
+  dragId = h.dataset.handle;
+  const card = h.closest('.meal');
+  card.classList.add('dragging');
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); e.dataTransfer.setDragImage(card, 20, 20); } catch (err) {}
+});
+function clearDrop() { document.querySelectorAll('.drop-before, .drop-after, .dragging').forEach(el => el.classList.remove('drop-before', 'drop-after', 'dragging')); }
+document.addEventListener('dragover', e => {
+  if (!dragId) return;
+  const card = e.target.closest && e.target.closest('[data-mealcard]');
+  if (!card || card.dataset.mealcard === dragId) return;
+  e.preventDefault();
+  const r = card.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+  document.querySelectorAll('.drop-before, .drop-after').forEach(el => el.classList.remove('drop-before', 'drop-after'));
+  card.classList.add(after ? 'drop-after' : 'drop-before');
+});
+document.addEventListener('drop', e => {
+  if (!dragId) return;
+  const card = e.target.closest && e.target.closest('[data-mealcard]');
+  e.preventDefault();
+  if (card && card.dataset.mealcard !== dragId) {
+    const after = card.classList.contains('drop-after');
+    const arr = S.day.meals.filter(m => m.id !== dragId);
+    let to = arr.findIndex(m => m.id === card.dataset.mealcard) + (after ? 1 : 0);
+    const moving = S.day.meals.find(m => m.id === dragId);
+    arr.splice(to, 0, moving); S.day.meals = arr; touchDay();
+  }
+  dragId = null; clearDrop(); render();
+});
+document.addEventListener('dragend', () => { if (dragId) { dragId = null; clearDrop(); } });
+
+/* Install button (Chrome / Edge offer it when the app is not installed yet). */
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const b = $('#installbtn'); if (b) b.hidden = false; });
+window.addEventListener('appinstalled', () => { installEvt = null; const b = $('#installbtn'); if (b) b.hidden = true; });
+
+/* ---------- start ---------- */
+async function init() {
+  const store = makeStore();
+  S.store = store;
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+
+  let saved = null;
+  try { saved = await store.getProfile(); } catch (e) {}
+  S.profile = { ...DEFAULT_PROFILE, ...(saved || {}) };
+
+  let existing = {};
+  try { existing = await store.getProducts(); } catch (e) {}
+  if (!S.profile.seeded) {
+    try {
+      for (const p of SEED) if (!existing[p.id]) { await store.saveProduct(p, 0); existing[p.id] = p; }
+      S.profile.seeded = true;
+      await store.saveProfile(clone(S.profile), 0);
+    } catch (e) {}
+  }
+  S.products = existing;
+
+  let cats = null;
+  try { cats = await store.getCats(); } catch (e) {}
+  if (!cats) {
+    cats = clone(DEFAULT_CATS);
+    try {
+      await store.saveCats(cats, 0);
+    } catch (e) {}
+  }
+  S.categories = cats;
+
+  try {
+    store.subscribeProducts(o => {
+      S.products = o;
+      if (!S.ready) return;
+      if (S.tab === 'products' && $('#plist')) $('#plist').innerHTML = plistHTML();
+      else if (S.ui.adding && !S.ui.picked && $('#add-results')) $('#add-results').innerHTML = resultsHTML();
+    }, () => {});
+  } catch (e) {}
+
+  await loadDay(S.date);
+  S.ready = true;
+  render();
+  Sync.onChange(renderSync);
+  renderSync();
+  Sync.start({ flush: () => flushDay(), applied: onRemoteData });
+}
+init();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
