@@ -12,14 +12,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
-<script src="config.js"></script>
 <style>
 /* Layout: one narrow column like a food label — sticky header with tabs, day summary, then meal cards. */
 :root {
   /* Always dark, by request. */
   --bg: #111613; --surface: #19201C; --surface-2: #151B18; --ink: #E6ECE8; --muted: #93A199;
   --line: #2A3530; --accent: #5BBE93; --accent-ink: #0D1511; --accent-soft: #1D3129;
-  --prot: #82A9E2; --fat: #E3B24C; --carb: #C68DD6; --warn: #F07C66; --warn-soft: #3A201B;
+  --prot: #5A8EE6; --fat: #C0782A; --carb: #B474CE; --warn: #F07C66; --warn-soft: #3A201B;
   --shadow: 0 1px 2px rgba(0,0,0,.3);
   color-scheme: dark;
   --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
@@ -30,6 +29,7 @@
 html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
+.install { border: 1px solid var(--accent); background: none; color: var(--accent); border-radius: 10px; height: 38px; padding: 0 12px; font-size: 13px; font-weight: 500; }
 html, body { background: var(--bg); color: var(--ink); }
 body { font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
@@ -47,15 +47,11 @@ button { cursor: pointer; }
 .brand span { color: var(--accent); }
 .status { font-size: 12px; color: var(--muted); }
 .status.err { color: var(--warn); }
-.hbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 10px; font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
-.hbtn:hover { color: var(--ink); border-color: var(--accent); }
-.hbtn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.hbtn[data-s="ok"] .dot { background: var(--accent); }
-.hbtn[data-s="syncing"] .dot { background: var(--fat); }
-.hbtn[data-s="error"] .dot, .hbtn[data-s="relogin"] .dot { background: var(--warn); }
-.hbtn.install { color: var(--accent); border-color: var(--accent); }
-.tabs { display: flex; gap: 4px; width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
-.tabs button { flex: 1; border: 0; background: transparent; padding: 8px 6px; border-radius: 9px; font-weight: 500; color: var(--muted); }
+.tabs { display: flex; gap: 2px; width: 100%; overflow-x: auto; scrollbar-width: none; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.gear { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); flex: none; }
+.gear:hover { color: var(--ink); border-color: var(--accent); }
+.gear[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.tabs button { flex: 1 1 0; min-width: 0; border: 0; background: transparent; padding: 8px 4px; font-size: 14px; border-radius: 9px; font-weight: 500; color: var(--muted); }
 .tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 
 main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; gap: 16px; }
@@ -141,7 +137,7 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .ghead:hover { color: var(--ink); }
 .ghead .caret { display: inline-block; transition: transform .15s ease; font-size: 10px; }
 .ghead[aria-expanded="false"] .caret { transform: rotate(-90deg); }
-.ghead .gcount { margin-left: auto; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.ghead .gcount { font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; margin-left: -4px; }
 .plist .ghead:first-child { border-top: 0; border-radius: var(--r) var(--r) 0 0; }
 .ghead + .prow { border-top: 0; }
 .results { max-height: 320px; overflow-y: auto; }
@@ -153,6 +149,124 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .catrow { display: flex; gap: 8px; align-items: center; }
 .catrow .field { flex: 1; min-width: 0; }
 .catlist { display: flex; flex-direction: column; gap: 8px; }
+.ptable-wrap { overflow-x: auto; background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); }
+.ptable { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+.ptable th, .ptable td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; text-align: left; }
+.ptable thead th { border-top: 0; font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; vertical-align: bottom; }
+.ptable .pname { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 120px; max-width: 160px; font-weight: 500; font-size: 14px; overflow-wrap: anywhere; box-shadow: 1px 0 0 var(--line); }
+.ptable thead .pname { font-size: 12px; }
+.ptable .gh td { padding: 0; background: var(--surface-2); }
+.ptable .gh .ghead { position: sticky; left: 0; width: auto; min-width: min(100%, 320px); border-top: 0; }
+.ptable td.best { background: var(--accent-soft); }
+.ptable td.bad input { border-color: var(--warn); }
+.pcell { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 6px; min-width: 124px; align-items: center; }
+.pcell input, .pcell select { width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); font-size: 13px; }
+.pcell input { text-align: right; font-variant-numeric: tabular-nums; }
+.pcell select { width: auto; padding: 4px 2px; }
+.pcell input:focus, .pcell select:focus { border-color: var(--accent); outline: none; }
+.pcell .u { font-size: 12px; color: var(--muted); }
+.pcell .per { grid-column: 1 / -1; font-size: 11px; color: var(--muted); min-height: 1em; font-variant-numeric: tabular-nums; }
+.ptable .num-col { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ptable td.num-col small { display: block; font-size: 11px; color: var(--muted); }
+.applyrow { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+.applyrow > span { font-size: 13px; color: var(--muted); }
+.applyrow .err { margin-right: auto; }
+.pxsec { display: flex; flex-direction: column; gap: 10px; }
+.pxsec > div:not(.sechead-row) { display: flex; flex-direction: column; gap: 10px; }
+.pxsec > div[hidden] { display: none; }
+.sechead { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 0; font-family: var(--font-display); font-weight: 500; font-size: 16px; color: var(--ink); align-self: flex-start; }
+.sechead .caret { font-size: 11px; color: var(--muted); transition: transform .15s ease; }
+.sechead[aria-expanded="false"] .caret { transform: rotate(-90deg); }
+.sechead-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.sectitle { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 16px; }
+.ptable .sub { font-weight: 400; }
+.ptable td.num-col.best { color: var(--ink); font-weight: 600; }
+.costrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
+.costrow .costval { color: var(--muted); }
+.costrow .costval b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pxbar { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
+.pxsort { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.pxsort .field { width: auto; padding: 6px 8px; }
+.cost-line { margin: 0; font-size: 14px; color: var(--muted); }
+.cost-line b { color: var(--ink); }
+.toast { position: fixed; z-index: 15; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.4); font-size: 14px; }
+.toast span { min-width: 0; overflow-wrap: anywhere; }
+.toast .btn { flex: none; color: var(--accent); }
+.row-actions .push-right { margin-left: auto; }
+.weektop { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: center; }
+.donut { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; flex: 1 1 300px; min-width: 0; }
+.donut svg { width: 132px; height: 132px; flex: none; }
+.donut .dc1 { font-family: var(--font-display); font-size: 13px; fill: var(--ink); }
+.donut .dc2 { font-size: 9px; fill: var(--muted); }
+.donut figcaption { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.legend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; font-size: 14px; }
+.legend .ln small { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend .ln small b { color: var(--ink); font-weight: 600; }
+.legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+.sw.p { background: var(--prot); } .sw.f { background: var(--fat); } .sw.c { background: var(--carb); }
+.legend .lp { text-align: right; color: var(--ink); }
+.kcalavg { flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; }
+.kcalavg .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.kcalavg .fine { margin: 0; }
+.wchart { position: relative; }
+.wplot { position: relative; height: 200px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; padding-top: 18px; border-bottom: 1px solid var(--line); }
+.wbar { position: relative; display: flex; flex-direction: column; align-items: stretch; border: 0; background: none; padding: 0; min-width: 0; color: var(--muted); }
+.wbar .wv { font-size: 11px; text-align: center; height: 16px; color: var(--muted); }
+.wbar .wcol { flex: 1; display: flex; align-items: flex-end; justify-content: center; }
+.wbar .wcol i { display: block; width: min(70%, 34px); background: var(--accent); border-radius: 4px 4px 0 0; }
+.wbar .wcol i.over { background: var(--warn); }
+.wbar .wd { position: absolute; bottom: -22px; left: 0; right: 0; text-align: center; font-size: 12px; }
+.wbar.today .wd { color: var(--ink); font-weight: 600; }
+.wbar:hover .wcol i, .wbar:focus-visible .wcol i { filter: brightness(1.2); }
+.wgoal { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); pointer-events: none; z-index: 1; }
+.wgoal span { position: absolute; right: 0; top: -17px; font-size: 11px; color: var(--muted); background: var(--surface); padding-left: 4px; }
+.wtip { position: absolute; z-index: 3; top: 0; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,.4); pointer-events: none; }
+.wtable-wrap { overflow-x: auto; margin-top: 30px; }
+.wtable { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.wtable th, .wtable td { padding: 7px 8px; text-align: right; border-top: 1px solid var(--line); }
+.wtable th:first-child { text-align: left; font-weight: 400; }
+.wtable thead th { border-top: 0; font-size: 12px; color: var(--muted); font-weight: 600; }
+.wtable tr.today th .linkbtn { font-weight: 600; }
+.wtable td.muted { color: var(--muted); text-align: left; font-size: 13px; }
+.wtable tfoot th, .wtable tfoot td { font-weight: 600; border-top: 2px solid var(--line); }
+.mlist { display: flex; flex-direction: column; gap: 10px; }
+.mcard { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+.mcard > .ghead:first-child { border-top: 0; }
+.mpad { padding: 12px 14px; }
+.mrow { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 10px; padding: 10px 12px 10px 14px; border-top: 1px solid var(--line); align-items: start; }
+.mcard > .mrow:first-child, .ghead + .mrow { border-top: 0; }
+.mrow .mname { font-weight: 500; font-size: 14px; overflow-wrap: anywhere; padding-top: 6px; }
+.mrow [data-pxcell] { padding: 4px; border-radius: 8px; }
+.mrow [data-pxcell].best { background: var(--accent-soft); }
+.mrow [data-pxcell].bad input { border-color: var(--warn); }
+.mrow .pcell { min-width: 0; }
+.mlist > .ghead { border-radius: 10px; border-top: 0; }
+.mcmp { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.mcmp h3 { margin: 0; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.mcmp ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.mcmp li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 14px; }
+.mcmp li.best { background: var(--accent-soft); font-weight: 600; }
+.mcmp li small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.meval { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.meval span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.meval b { color: var(--ink); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.shopchips { margin-bottom: 2px; }
+.encard .enhead { display: flex; flex-direction: column; gap: 6px; }
+.enbar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.enbar i { display: block; height: 100%; }
+.enbar .pl, .enlegend .sw.pl { background: var(--accent); }
+.enbar .ex, .enlegend .sw.ex { background: color-mix(in srgb, var(--accent) 45%, var(--surface)); }
+.enlegend .sw.ov { background: var(--warn); }
+.enlegend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.enlegend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.enlegend .sw { width: 12px; height: 12px; border-radius: 3px; }
+.enlegend b { font-weight: 600; white-space: nowrap; }
+.enlines { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.enlines span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.enlines b { color: var(--ink); font-size: 15px; font-weight: 600; }
+.ennote { margin: 0; font-size: 13px; padding: 8px 10px; border-radius: 10px; background: var(--warn-soft); }
+.wtable td.neg { color: var(--warn); }
 .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; }
 .confirm span { flex: 1 1 160px; }
 
@@ -243,17 +357,19 @@ textarea.field { min-height: 120px; font-family: ui-monospace, monospace; font-s
   <div class="wrap">
     <h1 class="brand">Дневник <span>КБЖУ</span></h1>
     <span class="status" id="status" aria-live="polite"></span>
-    <button class="hbtn install" id="installbtn" data-act="install" hidden>Установить</button>
-    <button class="hbtn" id="syncbtn" data-act="syncbtn" hidden><span class="dot"></span><span id="synctext"></span></button>
+    <button class="install" id="installbtn" data-act="install" hidden>Установить</button>
+    <button class="gear" id="gearbtn" data-act="tab" data-tab="profile" aria-pressed="false" aria-label="Параметры" title="Параметры"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="diary" aria-selected="true">Дневник</button>
       <button role="tab" data-tab="products" aria-selected="false">Продукты</button>
-      <button role="tab" data-tab="profile" aria-selected="false">Параметры</button>
+      <button role="tab" data-tab="prices" aria-selected="false">Цены</button>
+      <button role="tab" data-tab="week" aria-selected="false">Неделя</button>
     </nav>
   </div>
 </header>
 <main><div class="wrap" id="view"><div class="loading">Загружаю дневник…</div></div></main>
 <div id="modal-root"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 (() => {
@@ -319,176 +435,46 @@ const S = {
   products: {},
   categories: [],
   pdraft: null,
+  prices: { shops: [], prices: {}, showCost: false },
+  week: null, weekData: null, weekLoading: null,
+  pxDraft: null,
+  pxOnly: {},
   date: isoDate(new Date()),
   day: defaultDay(),
   tab: 'diary',
-  ui: { adding: null, query: '', picked: null, unit: 'g', qty: '', confirmDel: null, confirmProd: null, confirmCat: null, prodQuery: '', catFilter: 'all', addCat: 'all', importData: null, exportText: '', msg: '' },
+  ui: { adding: null, query: '', picked: null, unit: 'g', qty: '', confirmDel: null, confirmProd: null, confirmCat: null, prodQuery: '', catFilter: 'all', addCat: 'all', pxQuery: '', pxCat: 'all', pxSort: 'name', pxErr: '', pxBad: new Set(), confirmShop: null, importData: null, exportText: '', msg: '' },
   modal: null,
+  downloads: null,
 };
 try { const t = localStorage.getItem('kbju.tab'); if (t) S.tab = t; } catch (e) {}
 
-/* ---------- storage: one record on the device; every entry carries _t (edit time) so devices can merge ---------- */
-const DATA_KEY = 'kbju.data';
-const emptyData = () => ({ v: 1, profile: null, categories: null, products: {}, days: {} });
-function loadData() { try { const d = JSON.parse(localStorage.getItem(DATA_KEY)); if (d && d.products && d.days) return d; } catch (e) {} return emptyData(); }
-const strip = o => { const c = clone(o); delete c._t; return c; };
-
-function makeStore() {
-  let D = loadData();
-  const listeners = new Set();
-  const live = () => { const o = {}; for (const [id, p] of Object.entries(D.products)) if (!p.deleted) o[id] = strip(p); return o; };
-  const emit = () => { const l = live(); listeners.forEach(f => f(l)); };
-  const changed = () => { localStorage.setItem(DATA_KEY, JSON.stringify(D)); Sync.schedule(); };
+/* ---------- storage ---------- */
+function makeLocalStore() {
+  const get = k => { try { return JSON.parse(localStorage.getItem('kbju.' + k)); } catch (e) { return null; } };
+  const put = (k, v) => { try { localStorage.setItem('kbju.' + k, JSON.stringify(v)); } catch (e) {} };
+  let listener = null;
+  const emit = () => listener && listener(get('products') || {});
   return {
-    get data() { return D; },
-    replaceData(nd) { D = nd; localStorage.setItem(DATA_KEY, JSON.stringify(D)); emit(); },
-    async getProfile() { return D.profile ? strip(D.profile) : null; },
-    async saveProfile(p, t = Date.now()) { D.profile = { ...clone(p), _t: t }; changed(); },
-    async getCats() { return D.categories ? clone(D.categories.list) : null; },
-    async saveCats(list, t = Date.now()) { D.categories = { list: clone(list), _t: t }; changed(); },
-    async getProducts() { return live(); },
-    subscribeProducts(cb) { listeners.add(cb); cb(live()); return () => listeners.delete(cb); },
-    async saveProduct(p, t = Date.now()) { D.products[p.id] = { ...clone(p), _t: t }; changed(); emit(); },
-    async deleteProduct(id) { D.products[id] = { id, deleted: true, _t: Date.now() }; changed(); emit(); },
-    async getDay(d) { return D.days[d] ? strip(D.days[d]) : null; },
-    async saveDay(d, data) { D.days[d] = { ...clone(data), _t: Date.now() }; changed(); },
-    async allDays() { const o = {}; for (const [k, v] of Object.entries(D.days)) o[k] = strip(v); return o; },
+    kind: 'local',
+    async getProfile() { return get('profile'); },
+    async saveProfile(p) { put('profile', p); },
+    async getCats() { return get('cats'); },
+    async getPrices() { return get('prices'); },
+    async savePrices(p) { put('prices', p); },
+    async saveCats(c) { put('cats', c); },
+    async getProducts() { return get('products') || {}; },
+    subscribeProducts(cb) { listener = cb; emit(); return () => { listener = null; }; },
+    async saveProduct(p) { const all = get('products') || {}; all[p.id] = p; put('products', all); emit(); },
+    async deleteProduct(id) { const all = get('products') || {}; delete all[id]; put('products', all); emit(); },
+    async getDay(d) { return get('day.' + d); },
+    async saveDay(d, data) { put('day.' + d, data); },
+    async allDays() {
+      const out = {};
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('kbju.day.')) out[k.slice(9)] = get(k.slice(5)); } } catch (e) {}
+      return out;
+    },
   };
 }
-
-/* Newer edit wins, entry by entry: profile, category list, each product, each day. */
-function mergeData(a, b) {
-  const newer = (x, y) => !x ? y : !y ? x : ((y._t || 0) > (x._t || 0) ? y : x);
-  const out = { v: 1, profile: newer(a.profile, b.profile) || null, categories: newer(a.categories, b.categories) || null, products: {}, days: {} };
-  for (const part of ['products', 'days']) {
-    const A = a[part] || {}, B = b[part] || {};
-    for (const k of new Set([...Object.keys(A), ...Object.keys(B)])) out[part][k] = newer(A[k], B[k]);
-  }
-  return out;
-}
-const stable = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((r, x) => (r[x] = v[x], r), {}) : v);
-
-/* Sync is switched off until config.js sets sync: true. */
-const SYNC_ON = !!(window.KBJU_CONFIG && window.KBJU_CONFIG.sync);
-
-/* ---------- Sync through a private GitHub repository: one data.json, every save is a commit ---------- */
-const Sync = (() => {
-  const API = 'https://api.github.com';
-  const FILE = 'data.json';
-  const CK = 'kbju.gh';
-  const defRepo = (window.KBJU_CONFIG && window.KBJU_CONFIG.dataRepo) || '';
-  const st = { state: 'off', at: null, err: '', repo: '' };
-  const subs = new Set();
-  let timer = null, running = null, again = false, started = false;
-  const hooks = { flush: async () => {}, applied: () => {} };
-
-  const set = patch => { Object.assign(st, patch); subs.forEach(f => f(st)); };
-  const cfg = () => { try { return JSON.parse(localStorage.getItem(CK)); } catch (e) { return null; } };
-  const saveCfg = c => { try { c ? localStorage.setItem(CK, JSON.stringify(c)) : localStorage.removeItem(CK); } catch (e) {} };
-  const err = (code, msg) => Object.assign(new Error(msg || code), { code });
-  const enc = str => { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
-  const dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
-
-  async function gh(path, opts = {}, c = cfg()) {
-    if (!c) throw err('off');
-    const r = await fetch(API + path, { cache: 'no-store', ...opts, headers: {
-      Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: 'Bearer ' + c.token, ...(opts.headers || {}) } });
-    if (r.status === 401) throw err('relogin', 'Ключ GitHub не подходит или истёк.');
-    return r;
-  }
-  const httpErr = async r => { const j = await r.json().catch(() => ({})); return err('http', 'GitHub ответил ' + r.status + (j.message ? ': ' + j.message : '')); };
-  const filePath = c => `/repos/${c.repo}/contents/${FILE}`;
-
-  async function connect(token, repo) {
-    token = (token || '').trim(); repo = (repo || '').trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/+$/, '');
-    if (!token) return 'Вставьте ключ доступа.';
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return 'Репозиторий пишется так: логин/название, например shv4br1k/kbju-data.';
-    const c = { token, repo };
-    let r;
-    try { r = await gh(`/repos/${repo}`, {}, c); }
-    catch (e) { return e.code === 'relogin' ? 'GitHub не принял ключ. Проверьте, что он скопирован целиком и не истёк.' : 'Нет связи с GitHub. Проверьте интернет.'; }
-    if (r.status === 404) return 'Репозиторий не найден, или у ключа нет к нему доступа.';
-    if (!r.ok) return (await httpErr(r)).message;
-    const j = await r.json();
-    if (!j.private) return 'Этот репозиторий публичный, дневник был бы виден всем. Сделайте его приватным (Settings → Change visibility) или создайте новый приватный.';
-    saveCfg(c);
-    set({ state: 'idle', err: '', repo });
-    if (!started) listen();
-    now();
-    return '';
-  }
-
-  async function syncOnce() {
-    const c = cfg();
-    for (let i = 0; i < 4; i++) {
-      const r = await gh(filePath(c));
-      let remote = null, sha = null;
-      if (r.status !== 404) {
-        if (!r.ok) throw await httpErr(r);
-        const meta = await r.json();
-        sha = meta.sha;
-        let text = meta.content ? dec(meta.content) : null;
-        if (text === null) { const raw = await gh(filePath(c), { headers: { Accept: 'application/vnd.github.raw+json' } }); if (!raw.ok) throw await httpErr(raw); text = await raw.text(); }
-        try { remote = JSON.parse(text); } catch (e) { remote = null; }
-      }
-      const merged = remote ? mergeData(S.store.data, remote) : S.store.data;
-      if (stable(merged) !== stable(S.store.data)) { S.store.replaceData(mergeData(S.store.data, merged)); hooks.applied(); }
-      if (remote && stable(merged) === stable(remote)) return;
-      const up = await gh(filePath(c), { method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Синхронизация ' + new Date().toISOString().slice(0, 16).replace('T', ' '), content: enc(JSON.stringify(merged)), ...(sha ? { sha } : {}) }) });
-      if (up.status === 409 || up.status === 422) continue;
-      if (up.status === 403 || up.status === 404) throw err('http', 'У ключа нет права записи в репозиторий. При создании ключа нужно выбрать Contents: Read and write.');
-      if (!up.ok) throw await httpErr(up);
-      return;
-    }
-    throw err('busy', 'Данные одновременно меняются с другого устройства, попробую позже.');
-  }
-
-  function now() {
-    if (!cfg() || st.state === 'relogin') return Promise.resolve();
-    if (running) { again = true; return running; }
-    clearTimeout(timer);
-    running = (async () => {
-      set({ state: 'syncing' });
-      try { await hooks.flush(); await syncOnce(); set({ state: 'ok', at: Date.now(), err: '' }); }
-      catch (e) {
-        if (e.code === 'relogin') set({ state: 'relogin', err: e.message });
-        else if (e.code === 'off') set({ state: 'off' });
-        else if (!navigator.onLine || e instanceof TypeError) set({ state: 'offline' });
-        else set({ state: 'error', err: e.message });
-      } finally {
-        running = null;
-        if (again) { again = false; schedule(2000); }
-      }
-    })();
-    return running;
-  }
-  function schedule(ms = 10000) {
-    if (!SYNC_ON || !cfg() || st.state === 'relogin') return;
-    clearTimeout(timer); timer = setTimeout(now, ms);
-  }
-  function listen() {
-    started = true;
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { hooks.flush(); now(); } else now(); });
-    window.addEventListener('online', () => now());
-    setInterval(() => { if (!document.hidden) now(); }, 120000);
-  }
-  async function start(h) {
-    Object.assign(hooks, h);
-    const c = cfg();
-    if (!c) { set({ state: 'off', repo: '' }); return; }
-    set({ state: 'idle', repo: c.repo });
-    listen();
-    now();
-  }
-  async function replaceToken(token) {
-    const c = cfg(); if (!c) return 'Сначала подключите репозиторий.';
-    set({ state: 'idle' });
-    return connect(token, c.repo);
-  }
-  function disconnect() { saveCfg(null); clearTimeout(timer); set({ state: 'off', repo: '', at: null, err: '' }); }
-  return { start, now, schedule, connect, replaceToken, disconnect, defRepo, get st() { return st; }, onChange: f => subs.add(f) };
-})();
 
 /* ---------- save status ---------- */
 function setStatus(kind) {
@@ -555,7 +541,8 @@ const view = () => $('#view');
 
 function render() {
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
-  view().innerHTML = (S.tab === 'products' ? productsHTML() : S.tab === 'profile' ? profileHTML() : diaryHTML());
+  const gear = $('#gearbtn'); if (gear) gear.setAttribute('aria-pressed', String(S.tab === 'profile'));
+  view().innerHTML = (S.tab === 'products' ? productsHTML() : S.tab === 'prices' ? pricesHTML() : S.tab === 'week' ? weekHTML() : S.tab === 'profile' ? profileHTML() : diaryHTML());
   renderModal();
 }
 
@@ -586,7 +573,7 @@ function summaryHTML() {
   if (!g) {
     return `<div class="sum-top"><div class="kcal-big num">${r0(t.kcal)}<small>ккал</small></div></div>
       <div class="macros">${macroHTML('p', 'Белки', t.p)}${macroHTML('f', 'Жиры', t.f)}${macroHTML('c', 'Углеводы', t.c)}</div>
-      <p class="goalhint">Заполните <button class="linkbtn" data-act="tab" data-tab="profile">параметры</button>, и здесь появится ваша норма на день.</p>`;
+      <p class="goalhint">Заполните <button class="linkbtn" data-act="tab" data-tab="profile">параметры</button>, и здесь появится ваша норма на день.</p>${dayCostHTML()}`;
   }
   const left = g.kcal - t.kcal, over = left < 0;
   return `<div class="sum-top">
@@ -594,7 +581,7 @@ function summaryHTML() {
       <div class="left ${over ? 'over' : ''}">${over ? 'Сверх нормы' : 'Осталось'} <b class="num">${r0(Math.abs(left))}</b> ккал</div>
     </div>
     <div class="bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, t.kcal / g.kcal * 100)}%"></i></div>
-    <div class="macros">${macroHTML('p', 'Белки', t.p, g.p)}${macroHTML('f', 'Жиры', t.f, g.f)}${macroHTML('c', 'Углеводы', t.c, g.c)}</div>`;
+    <div class="macros">${macroHTML('p', 'Белки', t.p, g.p)}${macroHTML('f', 'Жиры', t.f, g.f)}${macroHTML('c', 'Углеводы', t.c, g.c)}</div>${dayCostHTML()}`;
 }
 function macroHTML(cls, label, v, goal) {
   if (!goal) return `<div class="macro ${cls}"><span class="lbl">${label}</span><span class="val num"><b>${r0(v)}</b> г</span></div>`;
@@ -645,10 +632,430 @@ function addPanelHTML() {
   return `<div class="addpanel">
     <div class="addpanel-top">
       <input class="field" id="add-search" type="search" placeholder="Найти продукт в базе…" autocomplete="off" value="${esc(S.ui.query)}">
-      <button class="btn" data-act="closeAdd">Готово</button>
     </div>
     <div id="add-results">${resultsHTML()}</div>
   </div>`;
+}
+
+/* ---------- prices ---------- */
+const fmtDay = iso => { try { return parseDate(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
+const nf2 = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const rub = n => n == null ? '—' : (n >= 100 ? nf0.format(Math.round(n)) : n >= 10 ? nf1.format(Math.round(n * 10) / 10) : nf2.format(Math.round(n * 100) / 100)) + ' ₽';
+const nv = v => { const s = String(v ?? '').trim(); return s === '' ? '' : num(s); };
+
+function cellGrams(c, prod) {
+  const q = num(c && c.qty);
+  if (!(q > 0)) return 0;
+  return c.unit === 'pc' ? (prod && prod.piece ? q * prod.piece : 0) : q;
+}
+function per100(c, prod) { const pr = num(c && c.price), g = cellGrams(c, prod); return pr > 0 && g > 0 ? pr / g * 100 : null; }
+/* "Sold in one shop only": the saved value lives on the product; unapplied changes wait in S.pxOnly. */
+const shopExists = id => !!id && S.prices.shops.some(s => s.id === id);
+const savedOnly = pid => { const o = S.products[pid] && S.products[pid].onlyShop; return shopExists(o) ? o : ''; };
+const draftOnly = pid => pid in S.pxOnly ? (shopExists(S.pxOnly[pid]) ? S.pxOnly[pid] : '') : savedOnly(pid);
+const shopAllowed = (pid, sid, draft) => { const o = draft ? draftOnly(pid) : savedOnly(pid); return !o || o === sid; };
+function bestPrice(pid, table) {
+  const draft = !!table && table === S.pxDraft;
+  const row = (table || S.prices.prices)[pid] || {}; let best = null, n = 0;
+  for (const sh of S.prices.shops) { if (!shopAllowed(pid, sh.id, draft)) continue; const v = per100(row[sh.id], S.products[pid]); if (v != null) { n++; if (!best || v < best.v) best = { v, shop: sh.id }; } }
+  if (best) best.n = n;
+  return best;
+}
+const protCost = (best, prod) => best && prod && prod.p > 0 ? best.v / prod.p * 10 : null;
+const kcalCost = (best, prod) => best && prod && prod.kcal > 0 ? best.v / prod.kcal * 100 : null;
+/* Price of one piece: counted in pieces → price / pieces; product with a piece weight → from the 100 g price; otherwise the whole package. */
+function unitPrice(c, p) {
+  const pr = num(c && c.price), q = num(c && c.qty);
+  if (!(pr > 0) || !(q > 0)) return null;
+  if (c.unit === 'pc' && p.piece) return { v: pr / q, note: '' };
+  if (p.piece) return { v: per100(c, p) * p.piece / 100, note: '' };
+  return { v: pr, note: 'за ' + nf0.format(q) + ' г' };
+}
+
+function pxDirty() {
+  if (!S.pxDraft) return false;
+  const a = S.pxDraft, b = S.prices.prices;
+  const key = c => { if (!c) return ''; const p = nv(c.price), q = nv(c.qty); return p === '' && q === '' ? '' : JSON.stringify([p, q, c.unit === 'pc' ? 'pc' : 'g']); };
+  for (const pid of Object.keys(S.pxOnly)) if (draftOnly(pid) !== savedOnly(pid)) return true;
+  for (const pid of new Set([...Object.keys(a), ...Object.keys(b)]))
+    for (const sh of S.prices.shops) if (key(shopAllowed(pid, sh.id, true) ? (a[pid] || {})[sh.id] : null) !== key((b[pid] || {})[sh.id])) return true;
+  return false;
+}
+function pxApplyHTML() {
+  const d = pxDirty();
+  return `${S.ui.pxErr ? `<span class="err">${esc(S.ui.pxErr)}</span>` : d ? '<span>Есть неприменённые изменения</span>' : ''}
+    ${d ? '<button class="btn" data-act="pxCancel">Отменить</button>' : ''}
+    <button class="btn primary" data-act="pxApply" ${d ? '' : 'disabled'}>Применить</button>`;
+}
+
+let pxEntryOpen = false;
+
+function pricesHTML() {
+  if (!S.pxDraft) S.pxDraft = clone(S.prices.prices);
+  const top = `<div class="toolbar">
+      <input class="field" id="px-search" type="search" placeholder="Поиск по продуктам" value="${esc(S.ui.pxQuery)}" autocomplete="off">
+      <button class="btn" data-act="manageShops">Магазины</button>
+    </div>
+    <div id="px-chips">${chipsHTML(S.ui.pxCat, 'pxCat')}</div>`;
+  if (!S.prices.shops.length) return top + `<section class="card"><p class="fine">Добавьте магазины, в которых покупаете продукты. Каждый магазин станет столбцом таблицы.</p>
+    <div class="row-actions"><button class="btn primary" data-act="manageShops">Добавить магазин</button></div></section>`;
+  return top + `
+    <section class="pxsec">
+      <button class="sechead" data-act="pxEntryToggle" aria-expanded="${pxEntryOpen}"><span class="caret" aria-hidden="true">▼</span>Ввод цен</button>
+      <div id="px-entry" ${pxEntryOpen ? '' : 'hidden'}>
+        <p class="label-note">Цену вводите как на ценнике: сколько стоит упаковка и сколько в ней граммов (у продуктов с весом штуки можно указать штуки).</p>
+        ${narrowPx() ? `<div class="mlist" id="ptable">${ptableHTML()}</div>` : `<div class="ptable-wrap"><table class="ptable" id="ptable">${ptableHTML()}</table></div>`}
+        <div class="applyrow" id="px-apply">${pxApplyHTML()}</div>
+      </div>
+    </section>
+    <section class="pxsec">
+      <div class="sechead-row"><h2 class="sectitle">Сравнение</h2>
+        <label class="pxsort">Сортировка
+          <select class="field" id="px-sort">
+            <option value="name" ${S.ui.pxSort === 'name' ? 'selected' : ''}>по названию</option>
+            <option value="price" ${S.ui.pxSort === 'price' ? 'selected' : ''}>по цене за 100 г</option>
+            <option value="kcal" ${S.ui.pxSort === 'kcal' ? 'selected' : ''}>по цене 100 ккал</option>
+            <option value="prot" ${S.ui.pxSort === 'prot' ? 'selected' : ''}>по цене белка</option>
+          </select></label>
+      </div>
+      ${narrowPx() ? `<div class="mlist" id="cmptable">${cmpTableHTML()}</div>` : `<div class="ptable-wrap"><table class="ptable" id="cmptable">${cmpTableHTML()}</table></div>`}
+      <p class="label-note">У магазинов — цена за 1 штуку (если у продукта не задан вес штуки, то за упаковку). Дальше оценка по лучшей цене: сколько стоят 100 г, 100 ккал и 10 г белка. Зелёным отмечен магазин, где выгоднее всего в пересчёте на вес. Здесь видны только применённые цены.</p>
+    </section>`;
+}
+
+/* Phones get lists and cards instead of wide tables. */
+const PX_NARROW = '(max-width: 640px)';
+const narrowPx = () => { try { return matchMedia(PX_NARROW).matches; } catch (e) { return false; } };
+function pxShopSel() { if (!S.prices.shops.some(s => s.id === S.ui.pxShop)) S.ui.pxShop = S.prices.shops[0] ? S.prices.shops[0].id : null; return S.ui.pxShop; }
+
+function pxCellHTML(p, sh, tag) {
+  if (!shopAllowed(p.id, sh.id, true)) return `<${tag} class="na" data-pxcell="${esc(p.id + '__' + sh.id)}"></${tag}>`;
+  const row = S.pxDraft[p.id] || {}, saved = S.prices.prices[p.id] || {};
+  const best = bestPrice(p.id, S.pxDraft);
+  const c = row[sh.id] || {}, id = p.id + '__' + sh.id, unit = c.unit === 'pc' && p.piece ? 'pc' : 'g';
+  const cls = [best && best.n > 1 && best.shop === sh.id ? 'best' : '', S.ui.pxBad.has(id) ? 'bad' : ''].join(' ');
+  return `<${tag} class="${cls}" data-pxcell="${esc(id)}"><div class="pcell">
+      <input id="pxp-${esc(id)}" data-px="price" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.price ?? '')}" placeholder="цена" aria-label="Цена: ${esc(p.name)}, ${esc(sh.name)}"><span class="u">₽</span>
+      <input id="pxq-${esc(id)}" data-px="qty" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.qty ?? '')}" placeholder="${unit === 'pc' ? 'шт' : 'вес'}" aria-label="Вес или количество в упаковке">
+      ${p.piece ? `<select id="pxu-${esc(id)}" data-px="unit" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" aria-label="Единица"><option value="g" ${unit === 'g' ? 'selected' : ''}>г</option><option value="pc" ${unit === 'pc' ? 'selected' : ''}>шт</option></select>` : '<span class="u">г</span>'}
+      <span class="per" data-pxper="${esc(id)}">${pxPerText(c, p, saved[sh.id])}</span>
+    </div></${tag}>`;
+}
+
+function ptableHTML() {
+  const shops = S.prices.shops, groups = productGroups(S.ui.pxQuery, S.ui.pxCat), all = S.ui.pxCat === 'all';
+  const emptyMsg = Object.keys(S.products).length ? 'Ничего не нашлось.' : 'В базе пока нет продуктов.';
+  if (narrowPx()) {
+    const sh = shops.find(s => s.id === pxShopSel());
+    const groupsHere = groups.map(g => ({ ...g, items: g.items.filter(p => shopAllowed(p.id, sh.id, true)) })).filter(g => g.items.length);
+    const chips = `<div class="chips shopchips" role="group" aria-label="Магазин">${shops.map(s => `<button class="chip" data-act="pxShop" data-sid="${esc(s.id)}" aria-pressed="${s.id === sh.id}">${esc(s.name)}</button>`).join('')}</div>`;
+    if (!groupsHere.length) return chips + `<div class="mcard"><p class="empty mpad">${groups.length ? 'В этом магазине нет подходящих продуктов.' : emptyMsg}</p></div>`;
+    const body = groupsHere.map(g => (all ? groupHead(g, S.ui.pxQuery) : '') + (all && isCollapsed(g.id, S.ui.pxQuery) ? '' :
+      g.items.map(p => `<div class="mrow" data-pxrow="${esc(p.id)}"><div class="mname">${esc(p.name)}</div>${pxCellHTML(p, sh, 'div')}</div>`).join(''))).join('');
+    return chips + `<div class="mcard">${body}</div>`;
+  }
+  const cols = shops.length + 1;
+  const head = `<thead><tr><th class="pname" scope="col">Продукт</th>${shops.map(s => `<th scope="col">${esc(s.name)}</th>`).join('')}</tr></thead>`;
+  if (!groups.length) return head + `<tbody><tr><td class="pname" colspan="${cols}">${emptyMsg}</td></tr></tbody>`;
+  const body = groups.map(g => (all ? `<tr class="gh"><td colspan="${cols}">${groupHead(g, S.ui.pxQuery)}</td></tr>` : '') +
+    (all && isCollapsed(g.id, S.ui.pxQuery) ? '' : g.items.map(pxRowHTML).join(''))).join('');
+  return head + `<tbody>${body}</tbody>`;
+}
+
+function pxRowHTML(p) {
+  return `<tr data-pxrow="${esc(p.id)}"><th class="pname" scope="row">${esc(p.name)}</th>${S.prices.shops.map(sh => pxCellHTML(p, sh, 'td')).join('')}</tr>`;
+}
+
+function cmpTableHTML() {
+  const shops = S.prices.shops, all = S.ui.pxCat === 'all';
+  const sortKey = p => { const b = bestPrice(p.id); return S.ui.pxSort === 'prot' ? protCost(b, p) : S.ui.pxSort === 'kcal' ? kcalCost(b, p) : b ? b.v : null; };
+  const groups = productGroups(S.ui.pxQuery, S.ui.pxCat)
+    .map(g => ({ ...g, items: g.items.filter(p => bestPrice(p.id)) }))
+    .filter(g => g.items.length);
+  if (S.ui.pxSort !== 'name') groups.forEach(g => g.items.sort((a, b) => { const x = sortKey(a), y = sortKey(b); return x == null && y == null ? alpha(a, b) : x == null ? 1 : y == null ? -1 : x - y; }));
+  const emptyMsg = Object.keys(S.prices.prices).length ? 'Ничего не нашлось.' : 'Пока нет цен. Заполните «Ввод цен» и нажмите «Применить».';
+
+  if (narrowPx()) {
+    if (!groups.length) return `<div class="mcard"><p class="empty mpad">${emptyMsg}</p></div>`;
+    const card = p => {
+      const best = bestPrice(p.id), r = S.prices.prices[p.id] || {};
+      const lines = shops.map(sh => ({ sh, u: unitPrice(r[sh.id], p) })).filter(x => x.u).map(({ sh, u }) =>
+        `<li class="${best.n > 1 && best.shop === sh.id ? 'best' : ''}"><span>${esc(sh.name)}</span><span class="num">${rub(u.v)} <small>${u.note || 'за шт'}</small></span></li>`).join('');
+      return `<article class="mcmp"><h3>${esc(p.name)}</h3><ul>${lines}</ul>
+        <div class="meval num"><span>100 г<b>${rub(best.v)}</b></span><span>100 ккал<b>${rub(kcalCost(best, p))}</b></span><span>10 г белка<b>${rub(protCost(best, p))}</b></span></div></article>`;
+    };
+    return groups.map(g => (all ? groupHead(g, S.ui.pxQuery) : '') + (all && isCollapsed(g.id, S.ui.pxQuery) ? '' : g.items.map(card).join(''))).join('');
+  }
+
+  const cols = shops.length + 4;
+  const head = `<thead><tr><th class="pname" scope="col">Продукт</th>${shops.map(s => `<th scope="col" class="num-col">${esc(s.name)}<br><span class="sub">за 1 шт</span></th>`).join('')}<th scope="col" class="num-col">Лучшая<br><span class="sub">за 100 г</span></th><th scope="col" class="num-col">100<br><span class="sub">ккал</span></th><th scope="col" class="num-col">10 г<br><span class="sub">белка</span></th></tr></thead>`;
+  if (!groups.length) return head + `<tbody><tr><td class="pname" colspan="${cols}">${emptyMsg}</td></tr></tbody>`;
+  const row = p => {
+    const best = bestPrice(p.id), r = S.prices.prices[p.id] || {};
+    const cells = shops.map(sh => { if (!shopAllowed(p.id, sh.id)) return '<td class="num-col"></td>'; const u = unitPrice(r[sh.id], p); return `<td class="num-col ${u && best.n > 1 && best.shop === sh.id ? 'best' : ''}">${u ? rub(u.v) + (u.note ? `<small>${u.note}</small>` : '') : '—'}</td>`; }).join('');
+    return `<tr><th class="pname" scope="row">${esc(p.name)}</th>${cells}<td class="num-col">${pxBestText(best)}</td><td class="num-col">${rub(kcalCost(best, p))}</td><td class="num-col">${rub(protCost(best, p))}</td></tr>`;
+  };
+  const body = groups.map(g => (all ? `<tr class="gh"><td colspan="${cols}">${groupHead(g, S.ui.pxQuery)}</td></tr>` : '') +
+    (all && isCollapsed(g.id, S.ui.pxQuery) ? '' : g.items.map(row).join(''))).join('');
+  return head + `<tbody>${body}</tbody>`;
+}
+try { matchMedia(PX_NARROW).addEventListener('change', () => { if (S.tab === 'prices') render(); }); } catch (e) {}
+
+function rerenderPx() { if ($('#ptable')) $('#ptable').innerHTML = ptableHTML(); if ($('#cmptable')) $('#cmptable').innerHTML = cmpTableHTML(); }
+
+function pxPerText(c, p, saved) { const v = per100(c, p); return (v != null ? rub(v) + ' / 100 г' : '') + (saved && saved.date && v != null ? ' · ' + fmtDay(saved.date) : ''); }
+function pxBestText(best) { if (!best) return '—'; const sh = S.prices.shops.find(s => s.id === best.shop); return `<b>${rub(best.v)}</b>${S.prices.shops.length > 1 && sh ? `<small>${esc(sh.name)}</small>` : ''}`; }
+
+function refreshPxRow(pid) {
+  const p = S.products[pid]; if (!p) return;
+  const best = bestPrice(pid, S.pxDraft), row = S.pxDraft[pid] || {}, saved = S.prices.prices[pid] || {};
+  for (const sh of S.prices.shops) {
+    const id = pid + '__' + sh.id;
+    const td = document.querySelector(`[data-pxcell="${CSS.escape(id)}"]`); if (!td) continue;
+    td.classList.toggle('best', !!best && best.n > 1 && best.shop === sh.id);
+    const per = td.querySelector('.per'); if (per) per.textContent = pxPerText(row[sh.id], p, saved[sh.id]);
+  }
+  const b = document.querySelector(`[data-pxbest="${CSS.escape(pid)}"]`); if (b) b.innerHTML = pxBestText(best);
+  const pr = document.querySelector(`[data-pxprot="${CSS.escape(pid)}"]`); if (pr) pr.textContent = rub(protCost(best, p));
+}
+
+function pxEdit(t) {
+  const { pid, sid } = t.dataset;
+  const row = S.pxDraft[pid] || (S.pxDraft[pid] = {});
+  const c = row[sid] || (row[sid] = { unit: 'g' });
+  c[t.dataset.px] = t.value;
+  if (t.dataset.px === 'unit') { const q = document.getElementById('pxq-' + pid + '__' + sid); if (q) q.placeholder = t.value === 'pc' ? 'шт' : 'вес'; }
+  S.ui.pxBad.delete(pid + '__' + sid);
+  t.closest('td')?.classList.remove('bad');
+  if (S.ui.pxErr && !S.ui.pxBad.size) S.ui.pxErr = '';
+  refreshPxRow(pid);
+  $('#px-apply').innerHTML = pxApplyHTML();
+}
+
+function applyPrices() {
+  const out = {}, bad = new Set(), t = isoDate(new Date());
+  for (const [pid, row] of Object.entries(S.pxDraft)) for (const sh of S.prices.shops) {
+    const c = row[sh.id]; if (!c || !shopAllowed(pid, sh.id, true)) continue;
+    const p = nv(c.price), q = nv(c.qty);
+    if (p === '' && q === '') continue;
+    if (!(p > 0) || !(q > 0)) { bad.add(pid + '__' + sh.id); continue; }
+    const unit = c.unit === 'pc' && S.products[pid] && S.products[pid].piece ? 'pc' : 'g';
+    const old = (S.prices.prices[pid] || {})[sh.id];
+    const same = old && old.price === p && old.qty === q && (old.unit || 'g') === unit;
+    (out[pid] || (out[pid] = {}))[sh.id] = { price: p, qty: q, unit, date: same ? old.date : t };
+  }
+  /* keep prices of products hidden by the current filter or deleted shops' cleanup */
+  for (const [pid, row] of Object.entries(S.prices.prices)) if (!S.pxDraft[pid]) out[pid] = row;
+  if (bad.size) {
+    S.ui.pxBad = bad;
+    S.ui.pxErr = bad.size === 1 ? 'В одной ячейке не хватает цены или количества (нужны оба числа больше нуля).' : `В ${bad.size} ячейках не хватает цены или количества (нужны оба числа больше нуля).`;
+    $('#ptable').innerHTML = ptableHTML(); $('#px-apply').innerHTML = pxApplyHTML();
+    return;
+  }
+  for (const pid of Object.keys(S.pxOnly)) {
+    const prod = S.products[pid], o = draftOnly(pid);
+    if (prod && o !== savedOnly(pid)) { const np = { ...prod, onlyShop: o }; S.products[pid] = np; run(S.store.saveProduct(np)); }
+  }
+  S.pxOnly = {};
+  S.prices.prices = out; S.pxDraft = clone(out); S.ui.pxErr = ''; S.ui.pxBad = new Set();
+  savePrices(); render();
+}
+function savePrices() { return run(S.store.savePrices(clone(S.prices))); }
+
+function shopsModalHTML() {
+  const count = id => Object.values(S.prices.prices).filter(r => r[id]).length;
+  const rows = S.prices.shops.map((s, i) => `<div class="catrow">
+      <input class="field" id="shop-${esc(s.id)}" data-shopname="${esc(s.id)}" value="${esc(s.name)}" aria-label="Название магазина">
+      <button class="mini" type="button" data-act="shopLeft" data-sid="${esc(s.id)}" ${i === 0 ? 'disabled' : ''} aria-label="Левее">←</button>
+      <button class="mini" type="button" data-act="shopRight" data-sid="${esc(s.id)}" ${i === S.prices.shops.length - 1 ? 'disabled' : ''} aria-label="Правее">→</button>
+      <button class="mini" type="button" data-act="delShop" data-sid="${esc(s.id)}" aria-label="Удалить ${esc(s.name)}">✕</button>
+    </div>
+    ${S.ui.confirmShop === s.id ? `<div class="confirm"><span>Убрать «${esc(s.name)}»? Его цены (${count(s.id)}) удалятся.</span><button class="btn sm danger" type="button" data-act="delShopYes" data-sid="${esc(s.id)}">Убрать</button><button class="btn sm" type="button" data-act="cancelConfirm">Отмена</button></div>` : ''}`).join('');
+  return `<div class="overlay" data-act="overlay">
+    <form class="modal" id="shops-form" role="dialog" aria-modal="true" aria-labelledby="sm-title">
+      <h2 id="sm-title">Магазины</h2>
+      <p class="fine">Каждый магазин — столбец в таблице цен. Стрелками меняется порядок столбцов, название можно исправить прямо в поле.</p>
+      <div class="catlist">${rows || '<p class="empty">Магазинов пока нет.</p>'}</div>
+      <div class="catrow"><input class="field" id="shop-new" placeholder="Например, Пятёрочка" autocomplete="off"><button class="btn" type="submit">Добавить</button></div>
+      <div class="row-actions"><button class="btn primary" type="button" data-act="closeModal">Готово</button></div>
+    </form></div>`;
+}
+function moveShop(id, d) {
+  const a = S.prices.shops, i = a.findIndex(s => s.id === id), j = i + d;
+  if (i < 0 || j < 0 || j >= a.length) return;
+  [a[i], a[j]] = [a[j], a[i]]; savePrices(); renderModal();
+}
+
+function dayCostHTML() {
+  let val = '';
+  if (S.prices.showCost) {
+    let sum = 0, miss = 0, n = 0;
+    for (const it of S.day.meals.flatMap(m => m.items)) { n++; const b = it.pid && bestPrice(it.pid); if (b) sum += b.v * (num(it.grams) || 0) / 100; else miss++; }
+    val = !S.prices.shops.length ? 'Добавьте цены во вкладке «Цены»'
+      : !n ? 'Пока ничего не съедено'
+      : `≈ <b>${rub(sum)}</b>${miss ? ` · без цены: ${miss}` : ''}`;
+  }
+  return `<div class="costrow"><label class="check"><input type="checkbox" id="px-showcost" ${S.prices.showCost ? 'checked' : ''}> Показывать стоимость еды</label>${val ? `<span class="costval">${val}</span>` : ''}</div>`;
+}
+
+/* ---------- week summary (Monday to Sunday) ---------- */
+const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+function mondayOf(iso) { const d = parseDate(iso); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoDate(d); }
+function addDays(iso, n) { const d = parseDate(iso); d.setDate(d.getDate() + n); return isoDate(d); }
+
+async function loadWeek() {
+  const mon = S.week;
+  if (S.weekLoading === mon) return;
+  S.weekLoading = mon;
+  await flushDay();
+  const dates = [...Array(7)].map((_, i) => addDays(mon, i));
+  const days = await Promise.all(dates.map(d => d === S.date ? Promise.resolve(clone(S.day)) : S.store.getDay(d).catch(() => null)));
+  S.weekLoading = null;
+  if (S.week !== mon) return;
+  S.weekData = { mon, rows: dates.map((date, i) => {
+    const items = days[i] && Array.isArray(days[i].meals) ? days[i].meals.flatMap(m => m.items) : [];
+    return { date, n: items.length, ...sum(items) };
+  }) };
+  if (S.tab === 'week') render();
+}
+
+function weekLabel(mon) {
+  const a = parseDate(mon), b = parseDate(addDays(mon, 6));
+  const m = d => d.toLocaleDateString('ru-RU', { month: 'long' }).replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та');
+  const fmt = d => d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  return a.getMonth() === b.getMonth() ? `${a.getDate()} – ${fmt(b)}` : `${fmt(a)} – ${fmt(b)}`;
+}
+
+function weekHTML() {
+  const thisMon = mondayOf(isoDate(new Date()));
+  if (!S.week) S.week = thisMon;
+  const bar = `<section class="daybar">
+    <button class="iconbtn" data-act="prevWeek" aria-label="Предыдущая неделя">‹</button>
+    <div class="dayname"><b>${S.week === thisMon ? 'Эта неделя' : S.week === addDays(thisMon, -7) ? 'Прошлая неделя' : 'Неделя'}</b><span>${esc(weekLabel(S.week))}${S.week === thisMon ? '' : ' <button class="todaybtn" data-act="thisWeek">к этой неделе</button>'}</span></div>
+    <button class="iconbtn" data-act="nextWeek" aria-label="Следующая неделя">›</button>
+  </section>`;
+  if (!S.weekData || S.weekData.mon !== S.week) { loadWeek(); return bar + '<div class="loading">Считаю неделю…</div>'; }
+
+  const rows = S.weekData.rows, filled = rows.filter(r => r.n > 0), n = filled.length;
+  if (!n) return bar + `<section class="card"><p class="fine">За эту неделю записей нет. Сводка появится, как только в дневнике будет хотя бы один день с едой.</p></section>`;
+  const avg = k => filled.reduce((a, r) => a + r[k], 0) / n;
+  const A = { kcal: avg('kcal'), p: avg('p'), f: avg('f'), c: avg('c') };
+  const g = computeGoal(S.profile), E = energyCalc();
+  const ev = r => { const v = E.dayVal(r); return `<td class="${v < 0 && E.mode !== 'keep' ? 'neg' : ''}">${E.mode === 'keep' ? signed(v) : r0(v)}</td>`; };
+  return bar + `
+  <section class="card weekcard">
+    <div class="weektop">
+      ${donutHTML(A, g)}
+      <div class="kcalavg">
+        <span class="lbl">В среднем за день</span>
+        <div class="kcal-big num">${r0(A.kcal)}<small>ккал</small></div>
+        ${g ? `<p class="fine num">Норма ${r0(g.kcal)} ккал · ${A.kcal > g.kcal ? 'больше на' : 'меньше на'} <b>${r0(Math.abs(A.kcal - g.kcal))}</b></p>` : ''}
+        <p class="fine">Среднее по ${n} ${n === 1 ? 'дню' : 'дням'} с записями из 7. Пустые дни не учитываются.</p>
+      </div>
+    </div>
+  </section>
+  ${energyHTML(filled, E)}
+  <section class="card">
+    <h2>Калории по дням</h2>
+    ${weekBarsHTML(rows, g)}
+    <div class="wtable-wrap"><table class="wtable">
+      <thead><tr><th scope="col">День</th><th scope="col">Ккал</th><th scope="col">Б</th><th scope="col">Ж</th><th scope="col">У</th>${E ? `<th scope="col">${E.col}</th>` : ''}</tr></thead>
+      <tbody>${rows.map((r, i) => `<tr class="${r.date === isoDate(new Date()) ? 'today' : ''}">
+        <th scope="row"><button class="linkbtn" data-act="openDay" data-date="${r.date}">${WD[i]}, ${parseDate(r.date).getDate()}</button></th>
+        ${r.n ? `<td>${r0(r.kcal)}</td><td>${r0(r.p)}</td><td>${r0(r.f)}</td><td>${r0(r.c)}</td>${E ? ev(r) : ''}` : `<td colspan="${E ? 5 : 4}" class="muted">нет записей</td>`}
+      </tr>`).join('')}</tbody>
+      <tfoot><tr><th scope="row">Среднее</th><td>${r0(A.kcal)}</td><td>${r0(A.p)}</td><td>${r0(A.f)}</td><td>${r0(A.c)}</td>${E ? ev(A) : ''}</tr></tfoot>
+    </table></div>
+  </section>`;
+}
+
+/* ---------- energy balance for the week ---------- */
+const KCAL_PER_G_FAT = 7.7; // ≈ 7 700 kcal per kg of body fat
+function energyCalc() {
+  const auto = computeGoal({ ...S.profile, manual: false }), g = computeGoal(S.profile);
+  if (!auto || !g) return null;
+  const mode = S.profile.goal || 'lose', tdee = auto.tdee, norm = g.kcal;
+  return { mode, tdee, norm,
+    col: mode === 'lose' ? 'Дефицит' : mode === 'gain' ? 'Профицит' : 'Баланс',
+    dayVal: r => mode === 'lose' ? tdee - r.kcal : r.kcal - tdee };
+}
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + r0(Math.abs(v));
+const gFat = kcal => r0(Math.abs(kcal) / KCAL_PER_G_FAT);
+
+function energyHTML(filled, E) {
+  if (!E) return `<section class="card"><h2>Расход и дефицит</h2><p class="fine">Чтобы посчитать, сколько калорий ты тратишь, заполни пол, возраст, рост и вес в параметрах (шестерёнка вверху).</p></section>`;
+  const n = filled.length, burned = E.tdee * n, eaten = filled.reduce((a, r) => a + r.kcal, 0);
+  const dayWord = n === 1 ? 'день' : n < 5 ? 'дня' : 'дней';
+  const lines = `<div class="enlines num">
+      <span>Потрачено<b>${r0(burned)} ккал</b></span>
+      <span>Съедено<b>${r0(eaten)} ккал</b></span>
+      <span>Расход в день<b>${r0(E.tdee)} ккал</b></span>
+    </div>`;
+  const low = filled.filter(r => r.kcal < E.norm * 0.75).length;
+  const lowNote = low ? `<p class="ennote">${low === 1 ? 'В один день' : `В ${low} ${low < 5 ? 'дня' : 'дней'}`} съедено заметно меньше нормы. Сильное недоедание тяжело держать, и оно может замедлять похудение. Лучше держаться ближе к норме.</p>` : '';
+  const fine = `<p class="fine">Оценка по ${n} ${dayWord} с записями: расход посчитан по параметрам, жир — из расчёта ≈ 7 700 ккал на 1 кг. Вес на весах колеблется из-за воды, поэтому реальный результат лучше смотреть по взвешиваниям за несколько недель.</p>`;
+
+  if (E.mode === 'lose') {
+    const deficit = burned - eaten, planned = (E.tdee - E.norm) * n, extra = E.norm * n - eaten;
+    const planPart = Math.max(0, Math.min(planned, deficit)), extraPart = Math.max(0, extra), total = planPart + extraPart;
+    const head = deficit > 0
+      ? `<div class="kcal-big num">≈ ${gFat(deficit)}<small>г жира</small></div><p class="fine num">Дефицит ${r0(deficit)} ккал за ${n} ${dayWord}</p>`
+      : `<div class="kcal-big num">0<small>г жира</small></div><p class="fine num">Дефицита нет: съедено на ${r0(-deficit)} ккал больше, чем потрачено</p>`;
+    const barHTML = total > 0 ? `<div class="enbar" role="img" aria-label="По плану ${r0(planPart)} ккал, сверх плана ${r0(extraPart)} ккал">
+        ${planPart ? `<i class="pl" style="width:${planPart / total * 100}%"></i>` : ''}${extraPart ? `<i class="ex" style="width:${extraPart / total * 100}%"></i>` : ''}</div>` : '';
+    const legend = `<ul class="enlegend num">
+        <li><i class="sw pl"></i><span>По плану</span><b>${r0(planPart)} ккал · ≈ ${gFat(planPart)} г</b></li>
+        ${extra >= 0
+          ? `<li><i class="sw ex"></i><span>Сверх плана (съедено меньше нормы)</span><b>${r0(extraPart)} ккал · ≈ ${gFat(extraPart)} г</b></li>`
+          : `<li><i class="sw ov"></i><span>Съедено больше нормы</span><b>${r0(-extra)} ккал · −${gFat(-extra)} г от плана</b></li>`}
+      </ul>`;
+    return `<section class="card encard"><h2>Дефицит за неделю</h2><div class="enhead">${head}</div>${barHTML}${legend}${lines}${lowNote}${fine}</section>`;
+  }
+  if (E.mode === 'gain') {
+    const surplus = eaten - burned, planned = (E.norm - E.tdee) * n, diff = eaten - E.norm * n;
+    const head = surplus > 0
+      ? `<div class="kcal-big num">+${r0(surplus)}<small>ккал сверх расхода</small></div><p class="fine num">По плану +${r0(planned)} ккал · ${diff >= 0 ? `съедено на ${r0(diff)} больше нормы` : `не добрано до нормы ${r0(-diff)}`}</p>`
+      : `<div class="kcal-big num">0<small>ккал профицита</small></div><p class="fine num">Съедено на ${r0(-surplus)} ккал меньше, чем потрачено</p>`;
+    return `<section class="card encard"><h2>Профицит за неделю</h2><div class="enhead">${head}</div>${lines}${fine}</section>`;
+  }
+  const bal = eaten - burned;
+  return `<section class="card encard"><h2>Баланс за неделю</h2><div class="enhead">
+      <div class="kcal-big num">${signed(bal)}<small>ккал</small></div>
+      <p class="fine num">${Math.abs(bal) < 100 * n ? 'Почти ровно в расход — вес должен держаться.' : bal < 0 ? `Меньше расхода, ≈ ${gFat(bal)} г жира ушло` : `Больше расхода, ≈ ${gFat(bal)} г могло добавиться`}</p></div>${lines}${fine}</section>`;
+}
+
+function donutHTML(A, g) {
+  const parts = [['p', 'Белки', A.p * 4, A.p, g && g.p], ['f', 'Жиры', A.f * 9, A.f, g && g.f], ['c', 'Углеводы', A.c * 4, A.c, g && g.c]];
+  const total = parts.reduce((a, x) => a + x[2], 0);
+  const R = 46, C = 2 * Math.PI * R, GAP = total ? 2 : 0;
+  let off = 0;
+  const segs = total ? parts.filter(x => x[2] > 0).map(x => {
+    const len = x[2] / total * C, vis = Math.max(0, len - GAP);
+    const s = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--${x[0] === 'p' ? 'prot' : x[0] === 'f' ? 'fat' : 'carb'})" stroke-width="18" stroke-dasharray="${vis.toFixed(2)} ${(C - vis).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"><title>${x[1]}: ${Math.round(x[2] / total * 100)}% калорий</title></circle>`;
+    off += len; return s;
+  }).join('') : `<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--line)" stroke-width="18"></circle>`;
+  const legend = parts.map(x => `<li><i class="sw ${x[0]}"></i><span class="ln">${x[1]}<small><b>${r0(x[3])}</b>${x[4] ? ` из ${r0(x[4])}` : ''} г</small></span><span class="lp num">${total ? Math.round(x[2] / total * 100) : 0}%</span></li>`).join('');
+  return `<figure class="donut">
+    <svg viewBox="0 0 120 120" role="img" aria-label="Доля калорий из белков, жиров и углеводов"><g transform="rotate(-90 60 60)">${segs}</g>
+      <text x="60" y="57" text-anchor="middle" class="dc1">БЖУ</text><text x="60" y="73" text-anchor="middle" class="dc2">в среднем</text></svg>
+    <figcaption><ul class="legend">${legend}</ul><p class="fine">Проценты — доля калорий от белков, жиров и углеводов. Граммы — в среднем за день${g ? ' и норма' : ''}.</p></figcaption>
+  </figure>`;
+}
+
+function weekBarsHTML(rows, g) {
+  const max = Math.max(1, ...rows.map(r => r.kcal), g ? g.kcal : 0) * 1.08;
+  const todayIso = isoDate(new Date());
+  const bars = rows.map((r, i) => {
+    const h = r.n ? Math.max(2, r.kcal / max * 100) : 0;
+    const tip = r.n ? `${WD[i]}, ${parseDate(r.date).getDate()}: ${r0(r.kcal)} ккал · Б ${r0(r.p)} · Ж ${r0(r.f)} · У ${r0(r.c)}` : `${WD[i]}, ${parseDate(r.date).getDate()}: нет записей`;
+    const over = g && r.kcal > g.kcal;
+    return `<button class="wbar ${r.date === todayIso ? 'today' : ''}" data-act="openDay" data-date="${r.date}" data-tip="${esc(tip)}" aria-label="${esc(tip)}">
+      <span class="wv num">${r.n ? r0(r.kcal) : ''}</span>
+      <span class="wcol"><i class="${over ? 'over' : ''}" style="height:${h}%"></i></span>
+      <span class="wd">${WD[i]}</span></button>`;
+  }).join('');
+  const goalLine = g ? `<div class="wgoal" style="bottom:${g.kcal / max * 100}%"><span>норма ${r0(g.kcal)}</span></div>` : '';
+  return `<div class="wchart"><div class="wplot">${goalLine}${bars}</div><div class="wtip" id="wtip" hidden></div></div>`;
 }
 
 /* ---------- categories ---------- */
@@ -676,17 +1083,13 @@ function productGroups(q, cat) {
 }
 const visibleProducts = (q, cat) => productGroups(q, cat).filter(g => cat !== 'all' || !isCollapsed(g.id, q)).flatMap(g => g.items);
 
-/* Collapsed groups are remembered per browser; a search query opens everything. */
-let collapsed = new Set();
-try { collapsed = new Set(JSON.parse(localStorage.getItem('kbju.collapsed') || '[]')); } catch (e) {}
-const isCollapsed = (id, q) => !norm(q) && collapsed.has(id);
-function toggleGroup(id) {
-  collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
-  try { localStorage.setItem('kbju.collapsed', JSON.stringify([...collapsed])); } catch (e) {}
-}
+/* Every group starts collapsed when the app opens; a search query opens everything. */
+const expanded = new Set();
+const isCollapsed = (id, q) => !norm(q) && !expanded.has(id);
+function toggleGroup(id) { expanded.has(id) ? expanded.delete(id) : expanded.add(id); }
 function groupHead(g, q) {
   const open = !isCollapsed(g.id, q);
-  return `<button class="ghead" data-act="toggleGroup" data-gid="${esc(g.id)}" aria-expanded="${open}"><span class="caret" aria-hidden="true">▼</span>${esc(g.name)}<span class="gcount">${g.items.length}</span></button>`;
+  return `<button class="ghead" data-act="toggleGroup" data-gid="${esc(g.id)}" aria-expanded="${open}"><span class="caret" aria-hidden="true">▼</span>${esc(g.name)} <span class="gcount">(${g.items.length})</span></button>`;
 }
 
 function chipsHTML(sel, act) {
@@ -715,7 +1118,7 @@ function resultsHTML() {
         ${p.piece ? `<div class="seg" role="group" aria-label="Единица"><button data-act="unit" data-unit="g" aria-pressed="${unit === 'g'}">г</button><button data-act="unit" data-unit="pc" aria-pressed="${unit === 'pc'}">шт</button></div>` : '<span class="preview">г</span>'}
         <span class="preview" id="add-preview">${previewText()}</span>
       </div>
-      <div class="row-actions"><button class="btn primary" data-act="confirmAdd">Добавить</button><button class="btn" data-act="unpick">Другой продукт</button></div>
+      <div class="row-actions"><button class="btn primary" data-act="confirmAdd">Добавить</button><button class="btn" data-act="unpick">Другой продукт</button><button class="btn push-right" data-act="closeAdd">Отмена</button></div>
     </div>`;
   }
   if (S.ui.addCat !== 'all' && S.ui.addCat !== UNCAT && !hasCat(S.ui.addCat)) S.ui.addCat = 'all';
@@ -724,7 +1127,7 @@ function resultsHTML() {
     (S.ui.addCat === 'all' && isCollapsed(g.id, S.ui.query) ? [] : g.items).map(x => `<button class="res" data-act="pick" data-pid="${esc(x.id)}"><span>${esc(x.name)}</span><small>${r0(x.kcal)} ккал/100 г</small></button>`).join('')).join('');
   const none = !groups.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая.'}</p>` : '';
   return `${chipsHTML(S.ui.addCat, 'addCat')}<div class="results">${rows}</div>${none}
-    <div class="row-actions"><button class="btn sm" data-act="newProduct" data-fromadd="1">+ Новый продукт${S.ui.query ? ` «${esc(S.ui.query)}»` : ''}</button></div>`;
+    <div class="row-actions"><button class="btn sm" data-act="newProduct" data-fromadd="1">+ Новый продукт${S.ui.query ? ` «${esc(S.ui.query)}»` : ''}</button><button class="btn sm push-right" data-act="closeAdd">Отмена</button></div>`;
 }
 
 function pickedGrams() {
@@ -767,49 +1170,6 @@ function prowHTML(p) {
 }
 
 /* Profile tab */
-function fmtTime(ts) { return ts ? new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; }
-function syncCardHTML() {
-  const st = Sync.st;
-  let body;
-  if (st.state === 'off') body = `<p class="fine">Дневник будет храниться в вашем приватном репозитории на GitHub, и на телефоне с компьютером он будет одинаковым. На каждом устройстве ключ вводится один раз.</p>
-      <label class="f"><span>Репозиторий для данных</span><input class="field" id="gh-repo" value="${esc(S.ui.ghRepo ?? Sync.defRepo)}" placeholder="логин/название" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-      <label class="f"><span>Ключ доступа GitHub</span><input class="field" id="gh-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
-      ${S.ui.ghErr ? `<p class="err">${esc(S.ui.ghErr)}</p>` : ''}
-      <div class="row-actions"><button class="btn primary" data-act="ghConnect" ${S.ui.ghBusy ? 'disabled' : ''}>${S.ui.ghBusy ? 'Проверяю…' : 'Подключить'}</button></div>`;
-  else if (st.state === 'relogin') body = `<p class="fine">GitHub больше не принимает ключ (возможно, истёк срок). Создайте новый ключ и вставьте его сюда. Данные на устройстве никуда не делись.</p>
-      <label class="f"><span>Новый ключ доступа</span><input class="field" id="gh-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
-      ${S.ui.ghErr ? `<p class="err">${esc(S.ui.ghErr)}</p>` : ''}
-      <div class="row-actions"><button class="btn primary" data-act="ghToken" ${S.ui.ghBusy ? 'disabled' : ''}>Сохранить ключ</button><button class="btn" data-act="ghOff">Отключить</button></div>`;
-  else {
-    const line = st.state === 'syncing' ? 'Синхронизирую…' : st.state === 'offline' ? 'Нет интернета. Изменения сохранены на устройстве и уйдут на GitHub позже.'
-      : st.state === 'error' ? 'Ошибка: ' + st.err : st.at ? 'Последняя синхронизация: ' + fmtTime(st.at) : 'Подключено.';
-    body = `<p class="fine">Репозиторий: <b>${esc(st.repo)}</b><br>${esc(line)}</p>
-      <div class="row-actions"><button class="btn" data-act="syncNow" ${st.state === 'syncing' ? 'disabled' : ''}>Синхронизировать сейчас</button><button class="btn" data-act="ghOff">Отключить</button></div>`;
-  }
-  return `<h2>Синхронизация</h2>${body}`;
-}
-function renderSync() {
-  const st = Sync.st, btn = $('#syncbtn');
-  if (btn) {
-    btn.hidden = false;
-    btn.dataset.s = st.state;
-    $('#synctext').textContent = { off: 'Синхр. выкл.', relogin: 'Нужен новый ключ', syncing: 'Синхронизация…', ok: 'Синхронизировано',
-      offline: 'Без сети', error: 'Ошибка синхр.', idle: 'Синхр.' }[st.state] || '';
-    btn.title = st.at ? 'Последняя синхронизация: ' + fmtTime(st.at) : '';
-  }
-  const card = $('#synccard');
-  if (card && !(card.contains(document.activeElement) && /INPUT/.test(document.activeElement.tagName))) card.innerHTML = syncCardHTML();
-}
-/* Data arrived from another device: refresh what is on screen without fighting the user's typing. */
-async function onRemoteData() {
-  const prof = await S.store.getProfile();
-  if (prof) { const dirty = profDirty(); S.profile = { ...DEFAULT_PROFILE, ...prof }; if (!dirty) S.pdraft = null; }
-  const cats = await S.store.getCats(); if (cats) S.categories = cats;
-  if (!dayDirty) { const d = await S.store.getDay(S.date); S.day = d && Array.isArray(d.meals) ? d : defaultDay(); }
-  const a = document.activeElement;
-  if (S.modal || S.ui.adding || (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) return;
-  render();
-}
 const profDirty = () => !!S.pdraft && JSON.stringify(S.pdraft) !== JSON.stringify(S.profile);
 function applyBarHTML() {
   const dirty = profDirty();
@@ -846,7 +1206,6 @@ function profileHTML() {
         <label class="f"><span>Углеводы, г</span><input class="field num" id="pf-mc" data-prof="mC" type="number" inputmode="numeric" value="${val('mC')}"></label>
       </div>` : ''}
     </section>
-    ${SYNC_ON ? `<section class="card" id="synccard">${syncCardHTML()}</section>` : ''}
     <section class="card">
       <h2>Резервная копия</h2>
       <p class="fine">Файл со всеми продуктами, днями и параметрами. Пригодится для переноса или на всякий случай.</p>
@@ -879,6 +1238,7 @@ function renderModal() {
   const root = $('#modal-root');
   if (!S.modal) { root.innerHTML = ''; return; }
   if (S.modal.kind === 'cats') { root.innerHTML = catsModalHTML(); return; }
+  if (S.modal.kind === 'shops') { root.innerHTML = shopsModalHTML(); return; }
   const m = S.modal, p = m.data;
   const catSel = p.cat === '__new' ? '__new' : hasCat(p.cat) ? p.cat : '';
   root.innerHTML = `<div class="overlay" data-act="overlay">
@@ -901,6 +1261,8 @@ function renderModal() {
         </div>
       </div>
       <label class="f"><span>Вес 1 штуки, г (необязательно)</span><input class="field" id="pm-piece" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.piece ?? '')}" placeholder="например, для яиц или фруктов"></label>
+      ${S.prices.shops.length ? `<div class="f"><label class="check"><input type="checkbox" id="pm-only" ${shopExists(p.onlyShop) ? 'checked' : ''}> Продаётся только в одном магазине</label>
+        <select class="field" id="pm-onlyshop" aria-label="Магазин" ${shopExists(p.onlyShop) ? '' : 'hidden'}>${S.prices.shops.map(s => `<option value="${esc(s.id)}" ${s.id === p.onlyShop ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
       ${m.editId ? '<p class="fine">Уже записанные дни сохранят старые значения.</p>' : ''}
       <p class="err" id="pm-err" ${m.err ? '' : 'hidden'}>${esc(m.err || '')}</p>
       <div class="row-actions"><button class="btn primary" type="submit">Сохранить</button><button class="btn" type="button" data-act="closeModal">Отмена</button></div>
@@ -926,8 +1288,8 @@ function catsModalHTML() {
     </form></div>`;
 }
 function closeModal() {
-  const wasCats = S.modal && S.modal.kind === 'cats';
-  S.modal = null; S.ui.confirmCat = null;
+  const wasCats = S.modal && S.modal.kind !== 'product';
+  S.modal = null; S.ui.confirmCat = null; S.ui.confirmShop = null;
   if (wasCats) render(); else renderModal();
 }
 
@@ -938,7 +1300,9 @@ function openAdd(mealId) {
   S.ui.adding = mealId; S.ui.query = ''; S.ui.picked = null; S.ui.qty = ''; S.ui.addCat = 'all';
   render(); focus('#add-search');
 }
-function focus(sel) { setTimeout(() => { const el = $(sel); if (el) { el.focus(); if (el.select && el.type !== 'search') el.select(); } }, 0); }
+/* On touch screens the product search waits for a tap, so the keyboard doesn't pop up on its own. */
+const touchUI = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
+function focus(sel) { if (sel === '#add-search' && touchUI()) return; setTimeout(() => { const el = $(sel); if (el) { el.focus(); if (el.select && el.type !== 'search') el.select(); } }, 0); }
 
 function pick(pid) {
   const p = S.products[pid]; if (!p) return;
@@ -954,6 +1318,7 @@ function confirmAdd() {
   if (!p || !meal || !g) { focus('#add-qty'); return; }
   meal.items.push({ id: newId(), pid: p.id, name: p.name, grams: Math.round(g * 10) / 10, kcal: p.kcal, p: p.p, f: p.f, c: p.c, piece: p.piece || null });
   touchDay();
+  showUndo(meal, meal.items[meal.items.length - 1]);
   S.ui.query = ''; S.ui.picked = null; S.ui.qty = '';
   render(); focus('#add-search');
 }
@@ -980,7 +1345,8 @@ async function saveProductForm() {
   const pieceRaw = $('#pm-piece').value.trim();
   const piece = pieceRaw ? num(pieceRaw) : null;
   const catVal = $('#pm-cat').value, newCat = $('#pm-newcat').value.trim();
-  m.data = { name, kcal: $('#pm-kcal').value, p: $('#pm-p').value, f: $('#pm-f').value, c: $('#pm-c').value, piece: pieceRaw, cat: catVal, newcat: newCat };
+  const onlyShop = $('#pm-only') && $('#pm-only').checked ? $('#pm-onlyshop').value : '';
+  m.data = { name, kcal: $('#pm-kcal').value, p: $('#pm-p').value, f: $('#pm-f').value, c: $('#pm-c').value, piece: pieceRaw, cat: catVal, newcat: newCat, onlyShop };
   let err = '';
   if (!name) err = 'Введите название.';
   else if (catVal === '__new' && !newCat) err = 'Введите название новой категории или выберите существующую.';
@@ -988,8 +1354,15 @@ async function saveProductForm() {
   else if (pieceRaw && !(piece > 0)) err = 'Вес штуки должен быть больше нуля или оставьте поле пустым.';
   if (err) { m.err = err; const e = $('#pm-err'); e.textContent = err; e.hidden = false; return; }
   const cat = catVal === '__new' ? addCategory(newCat) : catVal;
-  const prod = { id: m.editId || newId(), name, kcal: vals[0], p: vals[1], f: vals[2], c: vals[3], piece: piece || null, cat: cat || '' };
+  const prod = { id: m.editId || newId(), name, kcal: vals[0], p: vals[1], f: vals[2], c: vals[3], piece: piece || null, cat: cat || '', onlyShop };
   S.products[prod.id] = prod;
+  delete S.pxOnly[prod.id];
+  /* Sold in one shop only: prices from other shops are no longer relevant. */
+  if (onlyShop) {
+    let dropped = false;
+    for (const tbl of [S.prices.prices, S.pxDraft || {}]) { const row = tbl[prod.id]; if (row) for (const sid of Object.keys(row)) if (sid !== onlyShop) { delete row[sid]; if (tbl === S.prices.prices) dropped = true; } }
+    if (dropped) savePrices();
+  }
   const fromAdd = m.fromAdd;
   S.modal = null;
   if (fromAdd && S.ui.adding) { S.ui.query = ''; render(); pick(prod.id); }
@@ -1001,9 +1374,13 @@ async function exportData() {
   S.ui.msg = '';
   let days = {};
   try { await flushDay(); days = await S.store.allDays(); } catch (e) { S.ui.msg = 'Не получилось собрать дни. Попробуйте ещё раз.'; render(); return; }
-  const data = { app: 'kbju-diary', version: 2, exportedAt: new Date().toISOString(), profile: S.profile, categories: S.categories, products: Object.values(S.products), days };
+  const data = { app: 'kbju-diary', version: 2, exportedAt: new Date().toISOString(), profile: S.profile, categories: S.categories, prices: S.prices, products: Object.values(S.products), days };
   const text = JSON.stringify(data, null, 1);
   const filename = `kbju-backup-${S.date}.json`;
+  if (S.downloads) {
+    try { await S.downloads.save({ filename, data: text }); S.ui.msg = 'Копия сохранена.'; render(); return; }
+    catch (e) { if (e && e.code === 'declined') return; if (e && e.code === 'rate_limited') { S.ui.msg = 'Окно сохранения уже открыто.'; render(); return; } }
+  }
   try {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
@@ -1018,7 +1395,7 @@ function readImport(file) {
     try {
       const d = JSON.parse(reader.result);
       if (!d || !Array.isArray(d.products) || typeof d.days !== 'object') throw new Error();
-      S.ui.importData = { profile: d.profile || null, categories: Array.isArray(d.categories) ? d.categories.filter(c => c && c.id && c.name) : [], products: d.products.filter(p => p && p.id && p.name), days: d.days || {} };
+      S.ui.importData = { profile: d.profile || null, prices: d.prices && Array.isArray(d.prices.shops) ? d.prices : null, categories: Array.isArray(d.categories) ? d.categories.filter(c => c && c.id && c.name) : [], products: d.products.filter(p => p && p.id && p.name), days: d.days || {} };
       S.ui.msg = '';
     } catch (e) { S.ui.importData = null; S.ui.msg = 'Этот файл не похож на копию дневника.'; }
     render();
@@ -1039,7 +1416,16 @@ async function applyImport() {
       S.categories = Object.values(byId);
       await S.store.saveCats(clone(S.categories));
     }
-    for (const p of d.products) await S.store.saveProduct({ id: String(p.id), name: String(p.name), kcal: +p.kcal || 0, p: +p.p || 0, f: +p.f || 0, c: +p.c || 0, piece: +p.piece || null, cat: p.cat ? String(p.cat) : '' });
+    if (d.prices) {
+      const shops = Object.fromEntries(S.prices.shops.map(x => [x.id, x]));
+      d.prices.shops.forEach(x => { if (x && x.id && x.name) shops[String(x.id)] = { id: String(x.id), name: String(x.name) }; });
+      const pr = clone(S.prices.prices);
+      for (const [pid, row] of Object.entries(d.prices.prices || {})) pr[pid] = { ...(pr[pid] || {}), ...row };
+      S.prices = { shops: Object.values(shops), prices: pr, showCost: !!d.prices.showCost || S.prices.showCost };
+      S.pxDraft = null;
+      await S.store.savePrices(clone(S.prices));
+    }
+    for (const p of d.products) await S.store.saveProduct({ id: String(p.id), name: String(p.name), kcal: +p.kcal || 0, p: +p.p || 0, f: +p.f || 0, c: +p.c || 0, piece: +p.piece || null, cat: p.cat ? String(p.cat) : '', onlyShop: p.onlyShop ? String(p.onlyShop) : '' });
     for (const [date, day] of Object.entries(d.days)) if (/^\d{4}-\d{2}-\d{2}$/.test(date) && day && Array.isArray(day.meals)) await S.store.saveDay(date, day);
     setStatus('saved');
   } catch (e) { ok = false; setStatus('error'); }
@@ -1052,17 +1438,54 @@ function shiftDay(delta) {
   const d = parseDate(S.date); d.setDate(d.getDate() + delta);
   goDay(isoDate(d));
 }
+/* Undo for the last added product: a toast with a button, open for 8 seconds. */
+let undo = null, undoTimer = null;
+function showUndo(meal, item) {
+  undo = { date: S.date, meal: meal.id, item: item.id };
+  const el = $('#toast');
+  el.innerHTML = `<span>Добавлено: ${esc(item.name)}</span><button class="btn sm" data-act="undoAdd">Отменить</button>`;
+  el.hidden = false;
+  clearTimeout(undoTimer); undoTimer = setTimeout(hideUndo, 8000);
+}
+function hideUndo() { undo = null; clearTimeout(undoTimer); const el = $('#toast'); if (el) el.hidden = true; }
+function undoAdd() {
+  const u = undo; hideUndo();
+  if (!u || u.date !== S.date) return;
+  const m = findMeal(u.meal); if (!m) return;
+  const before = m.items.length;
+  m.items = m.items.filter(i => i.id !== u.item);
+  if (m.items.length !== before) { touchDay(); render(); if (S.ui.adding) focus('#add-search'); }
+}
+
 async function goDay(date) {
+  hideUndo();
   S.ui.adding = null; S.ui.confirmDel = null;
   await loadDay(date); render();
 }
 
 /* ---------- events ---------- */
+/* A click anywhere outside the open add panel closes it (dialogs and the undo toast don't count). */
+function closeAddOnOutside(e) {
+  if (!S.ui.adding || S.modal) return false;
+  const tg = e.target;
+  if (!tg.isConnected || tg.closest('.addpanel, #modal-root, #toast')) return false;
+  S.ui.adding = null;
+  return true;
+}
 document.addEventListener('click', async e => {
+  const closedOutside = closeAddOnOutside(e);
   const t = e.target.closest('[data-act], [data-tab]');
-  if (!t) return;
+  if (!t) {
+    if (closedOutside) {
+      const id = e.target.id; render();
+      if (id && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) document.getElementById(id)?.focus();
+    }
+    return;
+  }
+  if (closedOutside && !['openAdd', 'tab', 'prevDay', 'nextDay', 'today', 'addSnack'].includes(t.dataset.act) && !t.dataset.tab) setTimeout(() => { if (!S.ui.adding && $('.addpanel')) render(); }, 0);
   if (t.matches('.tabs [data-tab]') || t.dataset.act === 'tab') {
     S.tab = t.dataset.tab; S.ui.adding = null;
+    if (S.tab === 'week') S.weekData = null;
     try { localStorage.setItem('kbju.tab', S.tab); } catch (err) {}
     render(); window.scrollTo(0, 0); return;
   }
@@ -1082,6 +1505,12 @@ document.addEventListener('click', async e => {
       $('#add-results').innerHTML = resultsHTML(); focus('#add-qty'); break;
     }
     case 'confirmAdd': confirmAdd(); break;
+    case 'undoAdd': undoAdd(); break;
+    case 'install': if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; $('#installbtn').hidden = true; }); } break;
+    case 'prevWeek': S.week = addDays(S.week, -7); render(); break;
+    case 'nextWeek': S.week = addDays(S.week, 7); render(); break;
+    case 'thisWeek': S.week = mondayOf(isoDate(new Date())); render(); break;
+    case 'openDay': S.tab = 'diary'; try { localStorage.setItem('kbju.tab', 'diary'); } catch (err) {} goDay(t.dataset.date); window.scrollTo(0, 0); break;
     case 'delItem': { const m = findMeal(mid); if (m) { m.items = m.items.filter(i => i.id !== t.dataset.item); touchDay(); render(); } break; }
     case 'addSnack': {
       const id = 'snack-' + newId();
@@ -1097,7 +1526,7 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'delSnackYes': S.day.meals = S.day.meals.filter(x => x.id !== mid); S.ui.confirmDel = null; if (S.ui.adding === mid) S.ui.adding = null; touchDay(); render(); break;
-    case 'cancelConfirm': S.ui.confirmDel = null; S.ui.confirmProd = null; render(); break;
+    case 'cancelConfirm': S.ui.confirmDel = null; S.ui.confirmProd = null; S.ui.confirmCat = null; S.ui.confirmShop = null; if (S.modal) renderModal(); else render(); break;
     case 'newProduct': openProductModal(null, t.dataset.fromadd === '1'); break;
     case 'editProduct': openProductModal(t.dataset.pid, false); break;
     case 'delProduct': S.ui.confirmProd = t.dataset.pid; $('#plist').innerHTML = plistHTML(); break;
@@ -1106,11 +1535,32 @@ document.addEventListener('click', async e => {
     case 'overlay': if (e.target === t) closeModal(); break;
     case 'catFilter': S.ui.catFilter = t.dataset.cat; $('#prod-chips').innerHTML = chipsHTML(S.ui.catFilter, 'catFilter'); $('#plist').innerHTML = plistHTML(); break;
     case 'addCat': S.ui.addCat = t.dataset.cat; $('#add-results').innerHTML = resultsHTML(); break;
+    case 'pxCat': S.ui.pxCat = t.dataset.cat; $('#px-chips').innerHTML = chipsHTML(S.ui.pxCat, 'pxCat'); rerenderPx(); break;
+    case 'pxShop': S.ui.pxShop = t.dataset.sid; $('#ptable').innerHTML = ptableHTML(); break;
+    case 'pxEntryToggle':
+      pxEntryOpen = !pxEntryOpen; t.setAttribute('aria-expanded', String(pxEntryOpen)); $('#px-entry').hidden = !pxEntryOpen;
+      break;
+    case 'pxApply': applyPrices(); break;
+    case 'pxCancel': S.pxDraft = clone(S.prices.prices); S.pxOnly = {}; S.ui.pxErr = ''; S.ui.pxBad = new Set(); render(); break;
+    case 'manageShops': S.modal = { kind: 'shops' }; S.ui.confirmShop = null; renderModal(); focus('#shop-new'); break;
+    case 'shopLeft': moveShop(t.dataset.sid, -1); break;
+    case 'shopRight': moveShop(t.dataset.sid, 1); break;
+    case 'delShop': S.ui.confirmShop = t.dataset.sid; renderModal(); break;
+    case 'delShopYes': {
+      const id = t.dataset.sid;
+      S.prices.shops = S.prices.shops.filter(x => x.id !== id);
+      for (const tbl of [S.prices.prices, S.pxDraft || {}]) for (const row of Object.values(tbl)) delete row[id];
+      for (const pr of Object.values(S.products)) if (pr.onlyShop === id) { const np = { ...pr, onlyShop: '' }; S.products[pr.id] = np; run(S.store.saveProduct(np)); }
+      for (const k of Object.keys(S.pxOnly)) if (S.pxOnly[k] === id) delete S.pxOnly[k];
+      S.ui.confirmShop = null; savePrices(); renderModal();
+      break;
+    }
     case 'toggleGroup': {
       toggleGroup(t.dataset.gid);
-      const inAdd = !!t.closest('#add-results');
-      if (inAdd) $('#add-results').innerHTML = resultsHTML(); else $('#plist').innerHTML = plistHTML();
-      const again = (inAdd ? $('#add-results') : $('#plist')).querySelector(`[data-gid="${CSS.escape(t.dataset.gid)}"]`);
+      const inAdd = !!t.closest('#add-results'), inPx = !!t.closest('#ptable'), inCmp = !!t.closest('#cmptable');
+      const box = inAdd ? $('#add-results') : inPx ? $('#ptable') : inCmp ? $('#cmptable') : $('#plist');
+      box.innerHTML = inAdd ? resultsHTML() : inPx ? ptableHTML() : inCmp ? cmpTableHTML() : plistHTML();
+      const again = box.querySelector(`[data-gid="${CSS.escape(t.dataset.gid)}"]`);
       if (again) again.focus();
       break;
     }
@@ -1130,25 +1580,6 @@ document.addEventListener('click', async e => {
     case 'applyProf': S.profile = clone(S.pdraft); touchProfile(); render(); break;
     case 'cancelProf': S.pdraft = clone(S.profile); render(); break;
     case 'export': exportData(); break;
-    case 'ghConnect': case 'ghToken': {
-      const token = $('#gh-token')?.value || '', repo = $('#gh-repo')?.value;
-      if (repo !== undefined) S.ui.ghRepo = repo;
-      S.ui.ghBusy = true; S.ui.ghErr = ''; $('#synccard').innerHTML = syncCardHTML();
-      const msg = a === 'ghConnect' ? await Sync.connect(token, repo) : await Sync.replaceToken(token);
-      S.ui.ghBusy = false; S.ui.ghErr = msg;
-      if (document.activeElement) document.activeElement.blur();
-      $('#synccard') && ($('#synccard').innerHTML = syncCardHTML());
-      break;
-    }
-    case 'ghOff': S.ui.ghErr = ''; Sync.disconnect(); break;
-    case 'syncNow': Sync.now(); break;
-    case 'syncbtn': {
-      const st = Sync.st.state;
-      if (st === 'off' || st === 'relogin' || st === 'error') { S.tab = 'profile'; render(); setTimeout(() => $('#synccard')?.scrollIntoView({ block: 'center' }), 0); }
-      else Sync.now();
-      break;
-    }
-    case 'install': if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; $('#installbtn').hidden = true; }); } break;
     case 'importYes': applyImport(); break;
     case 'importNo': S.ui.importData = null; render(); break;
     case 'copyExport': {
@@ -1180,6 +1611,12 @@ document.addEventListener('input', e => {
     S.ui.qty = t.value; const pv = $('#add-preview'); if (pv) pv.innerHTML = previewText();
   } else if (t.id === 'prod-search') {
     S.ui.prodQuery = t.value; $('#plist').innerHTML = plistHTML();
+  } else if (t.dataset.px && S.pxDraft) {
+    pxEdit(t);
+  } else if (t.id === 'px-search') {
+    S.ui.pxQuery = t.value; rerenderPx();
+  } else if (t.id === 'px-sort') {
+    S.ui.pxSort = t.value; if ($('#cmptable')) $('#cmptable').innerHTML = cmpTableHTML();
   } else if (t.dataset.prof && t.type !== 'checkbox' && S.pdraft) {
     S.pdraft[t.dataset.prof] = t.dataset.prof === 'activity' ? Number(t.value) : t.value;
     $('#goal-result').innerHTML = goalResultHTML(); $('#applybar').innerHTML = applyBarHTML();
@@ -1194,12 +1631,35 @@ document.addEventListener('change', e => {
     render();
   } else if (t.id === 'pf-activity') {
     S.pdraft.activity = Number(t.value); $('#goal-result').innerHTML = goalResultHTML(); $('#applybar').innerHTML = applyBarHTML();
+  } else if (t.id === 'pm-only') {
+    $('#pm-onlyshop').hidden = !t.checked;
   } else if (t.id === 'pm-cat') {
     const w = $('#pm-newcat-wrap'); w.hidden = t.value !== '__new'; if (!w.hidden) focus('#pm-newcat');
   } else if (t.dataset.catname) {
     const c = S.categories.find(x => x.id === t.dataset.catname);
     const v = t.value.trim();
     if (c && v && v !== c.name) { c.name = v; saveCats(); } else if (c) t.value = c.name;
+  } else if (t.dataset.shopname) {
+    const sh = S.prices.shops.find(x => x.id === t.dataset.shopname);
+    const v = t.value.trim();
+    if (sh && v && v !== sh.name) { sh.name = v; savePrices(); } else if (sh) t.value = sh.name;
+  } else if (t.dataset.only) {
+    const pid = t.dataset.only;
+    if (t.checked) {
+      const row = S.pxDraft[pid] || {};
+      const withPrice = S.prices.shops.find(sh => { const c = row[sh.id]; return c && nv(c.price) !== ''; });
+      S.pxOnly[pid] = (withPrice || S.prices.shops[0] || {}).id || '';
+    } else S.pxOnly[pid] = '';
+    $('#ptable').innerHTML = ptableHTML(); $('#px-apply').innerHTML = pxApplyHTML();
+    document.getElementById('only-' + pid)?.focus();
+  } else if (t.dataset.onlyshop) {
+    const pid = t.dataset.onlyshop;
+    S.pxOnly[pid] = t.value;
+    $('#ptable').innerHTML = ptableHTML(); $('#px-apply').innerHTML = pxApplyHTML();
+    document.getElementById('onlys-' + pid)?.focus();
+  } else if (t.id === 'px-showcost') {
+    S.prices.showCost = t.checked; savePrices();
+    const sm = $('#summary'); if (sm) { sm.innerHTML = summaryHTML(); $('#px-showcost')?.focus(); }
   } else if (t.id === 'import-file' && t.files && t.files[0]) {
     readImport(t.files[0]); t.value = '';
   } else if (t.dataset.grams) {
@@ -1215,7 +1675,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key !== 'Enter') return;
   if (t.id === 'add-search') { e.preventDefault(); const first = visibleProducts(S.ui.query, S.ui.addCat)[0]; if (first) pick(first.id); }
-  else if (t.dataset.catname) { e.preventDefault(); t.blur(); }
+  else if (t.dataset.catname || t.dataset.shopname || t.dataset.px) { e.preventDefault(); t.blur(); }
   else if (t.id === 'add-qty') { e.preventDefault(); confirmAdd(); }
   else if (t.dataset.grams) { t.blur(); }
 });
@@ -1226,8 +1686,32 @@ document.addEventListener('submit', e => {
     e.preventDefault();
     const inp = $('#cat-new'); if (!inp.value.trim()) { inp.focus(); return; }
     addCategory(inp.value); renderModal(); focus('#cat-new');
+  } else if (e.target.id === 'shops-form') {
+    e.preventDefault();
+    const inp = $('#shop-new'), name = inp.value.trim(); if (!name) { inp.focus(); return; }
+    if (!S.prices.shops.some(x => norm(x.name) === norm(name))) { S.prices.shops.push({ id: 'shop-' + newId(), name }); savePrices(); }
+    renderModal(); focus('#shop-new');
   }
 });
+
+/* Week chart tooltip: hover or keyboard focus on a bar. */
+function showTip(bar) {
+  const tip = $('#wtip'); if (!tip || !bar) return;
+  tip.textContent = bar.dataset.tip; tip.hidden = false;
+  const box = tip.parentElement.getBoundingClientRect(), r = bar.getBoundingClientRect();
+  const half = tip.offsetWidth / 2;
+  tip.style.left = Math.min(box.width - half, Math.max(half, r.left - box.left + r.width / 2)) + 'px';
+  const col = bar.querySelector('.wcol i') || bar;
+  tip.style.top = Math.max(0, col.getBoundingClientRect().top - box.top - tip.offsetHeight - 22) + 'px';
+}
+document.addEventListener('mouseover', e => { const b = e.target.closest && e.target.closest('.wbar'); if (b) showTip(b); });
+document.addEventListener('mouseout', e => { const b = e.target.closest && e.target.closest('.wbar'); if (b && !b.contains(e.relatedTarget)) { const t = $('#wtip'); if (t) t.hidden = true; } });
+document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('wbar')) showTip(e.target); });
+
+/* Install button (Chrome / Edge offer it while the app is not installed yet). */
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const b = $('#installbtn'); if (b) b.hidden = false; });
+window.addEventListener('appinstalled', () => { installEvt = null; const b = $('#installbtn'); if (b) b.hidden = true; });
 
 /* Drag & drop for snacks (mouse). Arrows ↑↓ cover touch screens. */
 let dragId = null;
@@ -1264,14 +1748,19 @@ document.addEventListener('drop', e => {
 });
 document.addEventListener('dragend', () => { if (dragId) { dragId = null; clearDrop(); } });
 
-/* Install button (Chrome / Edge offer it when the app is not installed yet). */
-let installEvt = null;
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const b = $('#installbtn'); if (b) b.hidden = false; });
-window.addEventListener('appinstalled', () => { installEvt = null; const b = $('#installbtn'); if (b) b.hidden = true; });
+/* Refresh from other devices when the page comes back into view. */
+document.addEventListener('visibilitychange', async () => {
+  if (!S.store) return;
+  if (document.hidden) { flushDay(); return; }
+  if (dayDirty || S.ui.adding || S.modal || S.tab !== 'diary' || document.activeElement?.dataset?.grams) return;
+  const date = S.date; let d = null;
+  try { d = await S.store.getDay(date); } catch (e) { return; }
+  if (S.date === date && !dayDirty && d && Array.isArray(d.meals) && JSON.stringify(d) !== JSON.stringify(S.day)) { S.day = d; render(); }
+});
 
 /* ---------- start ---------- */
 async function init() {
-  const store = makeStore();
+  const store = makeLocalStore();
   S.store = store;
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
 
@@ -1283,9 +1772,9 @@ async function init() {
   try { existing = await store.getProducts(); } catch (e) {}
   if (!S.profile.seeded) {
     try {
-      for (const p of SEED) if (!existing[p.id]) { await store.saveProduct(p, 0); existing[p.id] = p; }
+      for (const p of SEED) if (!existing[p.id]) { await store.saveProduct(p); existing[p.id] = p; }
       S.profile.seeded = true;
-      await store.saveProfile(clone(S.profile), 0);
+      await store.saveProfile(clone(S.profile));
     } catch (e) {}
   }
   S.products = existing;
@@ -1295,10 +1784,15 @@ async function init() {
   if (!cats) {
     cats = clone(DEFAULT_CATS);
     try {
-      await store.saveCats(cats, 0);
+      await store.saveCats(cats);
+      for (const s of SEED) { const p = existing[s.id]; if (p && !p.cat) await store.saveProduct({ ...p, cat: s.cat }); }
     } catch (e) {}
   }
   S.categories = cats;
+
+  let px = null;
+  try { px = await store.getPrices(); } catch (e) {}
+  S.prices = { shops: [], prices: {}, showCost: false, ...(px || {}) };
 
   try {
     store.subscribeProducts(o => {
@@ -1312,11 +1806,6 @@ async function init() {
   await loadDay(S.date);
   S.ready = true;
   render();
-  if (SYNC_ON) {
-    Sync.onChange(renderSync);
-    renderSync();
-    Sync.start({ flush: () => flushDay(), applied: onRemoteData });
-  }
 }
 init();
 })();
