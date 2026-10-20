@@ -275,13 +275,13 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .mac { display: inline-block; white-space: nowrap; margin-left: 8px; }
 .mdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
 .mdot.dp { background: var(--prot); } .mdot.df { background: var(--fat); } .mdot.dc { background: var(--carb); }
-.res.pickrow { justify-content: flex-start; align-items: center; gap: 12px; padding: 10px 8px; }
-.res.pickrow .rn { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
-.res.pickrow .rn small { color: var(--muted); font-size: 12px; white-space: normal; }
+.res.selrow { justify-content: flex-start; align-items: center; gap: 12px; padding: 10px 8px; }
+.res.selrow .rn { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.res.selrow .rn small { color: var(--muted); font-size: 12px; white-space: normal; }
 .tick { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); display: grid; place-items: center; }
-.res.pickrow.on { background: var(--accent-soft); }
-.res.pickrow.on .tick { background: var(--accent); border-color: var(--accent); }
-.res.pickrow.on .tick::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--accent-ink); border-bottom: 2px solid var(--accent-ink); transform: translateY(-1px) rotate(-45deg); }
+.res.selrow.on { background: var(--accent-soft); }
+.res.selrow.on .tick { background: var(--accent); border-color: var(--accent); }
+.res.selrow.on .tick::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--accent-ink); border-bottom: 2px solid var(--accent-ink); transform: translateY(-1px) rotate(-45deg); }
 .addfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .addfoot .push-right { margin-left: auto; }
 .addfoot { flex-wrap: nowrap; }
@@ -338,8 +338,6 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .res small { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .picked { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
 .picked .pname small { display: block; color: var(--muted); font-size: 12px; }
-.pickrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.pickrow input { width: 90px; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 2px; background: var(--surface-2); }
 .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; color: var(--muted); font-weight: 500; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
@@ -1316,7 +1314,7 @@ function resultsHTML() {
   const counts = { all: matches.length };
   for (const p of matches) { const k = hasCat(p.cat) ? p.cat : UNCAT; counts[k] = (counts[k] || 0) + 1; }
   const list = filteredProducts(S.ui.query, S.ui.addCat);
-  const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res pickrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
+  const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res selrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
       <i class="tick" aria-hidden="true"></i><span class="rn">${esc(x.name)}<small class="num">${r0(x.kcal)} ккал / 100 г${x.piece ? ` · ${x.recipe ? 'порция' : '1 шт'} ≈ ${r0(x.piece)} г` : ''}${x.recipe ? ' · блюдо' : ''}</small></span></button>`; };
   const none = !list.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
   return `${chipsHTML(S.ui.addCat, 'addCat', counts)}<div class="results">${list.map(row).join('')}</div>${none}<div id="add-foot">${addFootHTML()}</div>`;
