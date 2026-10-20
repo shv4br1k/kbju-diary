@@ -277,6 +277,7 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .mdot.dp { background: var(--prot); } .mdot.df { background: var(--fat); } .mdot.dc { background: var(--carb); }
 .res.selrow { justify-content: flex-start; align-items: center; gap: 12px; padding: 10px 8px; }
 .res.selrow .rn { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.res.selrow .rnm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .res.selrow .rn small { color: var(--muted); font-size: 12px; white-space: normal; }
 .tick { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); display: grid; place-items: center; }
 .res.selrow.on { background: var(--accent-soft); }
@@ -1315,7 +1316,7 @@ function resultsHTML() {
   for (const p of matches) { const k = hasCat(p.cat) ? p.cat : UNCAT; counts[k] = (counts[k] || 0) + 1; }
   const list = filteredProducts(S.ui.query, S.ui.addCat);
   const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res selrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
-      <i class="tick" aria-hidden="true"></i><span class="rn">${esc(x.name)}<small class="num">${r0(x.kcal)} ккал / 100 г${x.piece ? ` · ${x.recipe ? 'порция' : '1 шт'} ≈ ${r0(x.piece)} г` : ''}${x.recipe ? ' · блюдо' : ''}</small></span></button>`; };
+      <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${r0(x.kcal)} ккал / 100 г${x.piece ? ` · ${x.recipe ? 'порция' : '1 шт'} ≈ ${r0(x.piece)} г` : ''}${x.recipe ? ' · блюдо' : ''}</small></span></button>`; };
   const none = !list.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
   return `${chipsHTML(S.ui.addCat, 'addCat', counts)}<div class="results">${list.map(row).join('')}</div>${none}<div id="add-foot">${addFootHTML()}</div>`;
 }
