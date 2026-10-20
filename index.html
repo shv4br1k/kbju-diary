@@ -284,6 +284,9 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .res.pickrow.on .tick::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--accent-ink); border-bottom: 2px solid var(--accent-ink); transform: translateY(-1px) rotate(-45deg); }
 .addfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .addfoot .push-right { margin-left: auto; }
+.addfoot { flex-wrap: nowrap; }
+.selcount { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.chip .ccount { opacity: .75; }
 .steptitle { font-family: var(--font-display); font-weight: 500; font-size: 14px; padding: 2px 2px 0; }
 .qlist { display: flex; flex-direction: column; }
 .qrow { display: grid; grid-template-columns: minmax(0, 1fr) auto 56px 28px; gap: 8px; align-items: center; padding: 8px 2px; border-top: 1px solid var(--line); }
@@ -1282,10 +1285,14 @@ function groupHead(g, q) {
   return `<button class="ghead" data-act="toggleGroup" data-gid="${esc(g.id)}" aria-expanded="${open}"><span class="caret" aria-hidden="true">▼</span>${esc(g.name)} <span class="gcount">(${g.items.length})</span></button>`;
 }
 
-function chipsHTML(sel, act) {
-  const anyUncat = Object.values(S.products).some(p => !hasCat(p.cat));
-  const chip = (id, name) => `<button class="chip" data-act="${act}" data-cat="${esc(id)}" aria-pressed="${sel === id}">${esc(name)}</button>`;
-  return `<div class="chips" role="group" aria-label="Категория">${chip('all', 'Все')}${sortedCats().map(c => chip(c.id, c.name)).join('')}${anyUncat ? chip(UNCAT, 'Без категории') : ''}</div>`;
+/* counts (optional): {all: n, <catId>: n, _none: n} — shown in brackets; empty categories are hidden then. */
+function chipsHTML(sel, act, counts) {
+  const anyUncat = counts ? counts[UNCAT] > 0 : Object.values(S.products).some(p => !hasCat(p.cat));
+  const chip = (id, name) => {
+    if (counts && id !== 'all' && id !== sel && !counts[id]) return '';
+    return `<button class="chip" data-act="${act}" data-cat="${esc(id)}" aria-pressed="${sel === id}">${esc(name)}${counts ? ` <span class="ccount">(${counts[id] || 0})</span>` : ''}</button>`;
+  };
+  return `<div class="chips" role="group" aria-label="Категория">${chip('all', 'Все')}${sortedCats().map(c => chip(c.id, c.name)).join('')}${anyUncat || sel === UNCAT ? chip(UNCAT, 'Без категории') : ''}</div>`;
 }
 function saveCats() { return run(S.store.saveCats(clone(S.categories))); }
 function addCategory(name) {
@@ -1305,20 +1312,20 @@ const dots = t => `<span class="mac"><i class="mdot dp"></i>Б ${r0(t.p)}</span>
 function resultsHTML() {
   if (S.ui.step === 'qty' && S.ui.sel.length) return qtyStepHTML();
   if (S.ui.addCat !== 'all' && S.ui.addCat !== UNCAT && !hasCat(S.ui.addCat)) S.ui.addCat = 'all';
-  const groups = productGroups(S.ui.query, S.ui.addCat);
+  const matches = filteredProducts(S.ui.query, 'all');
+  const counts = { all: matches.length };
+  for (const p of matches) { const k = hasCat(p.cat) ? p.cat : UNCAT; counts[k] = (counts[k] || 0) + 1; }
+  const list = filteredProducts(S.ui.query, S.ui.addCat);
   const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res pickrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
       <i class="tick" aria-hidden="true"></i><span class="rn">${esc(x.name)}<small class="num">${r0(x.kcal)} ккал / 100 г${x.piece ? ` · ${x.recipe ? 'порция' : '1 шт'} ≈ ${r0(x.piece)} г` : ''}${x.recipe ? ' · блюдо' : ''}</small></span></button>`; };
-  const rows = groups.map(g => (S.ui.addCat === 'all' ? groupHead(g, S.ui.query) : '') +
-    (S.ui.addCat === 'all' && isCollapsed(g.id, S.ui.query) ? [] : g.items).map(row).join('')).join('');
-  const none = !groups.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая.'}</p>` : '';
-  return `${chipsHTML(S.ui.addCat, 'addCat')}<div class="results">${rows}</div>${none}<div id="add-foot">${addFootHTML()}</div>`;
+  const none = !list.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
+  return `${chipsHTML(S.ui.addCat, 'addCat', counts)}<div class="results">${list.map(row).join('')}</div>${none}<div id="add-foot">${addFootHTML()}</div>`;
 }
 function addFootHTML() {
   const n = S.ui.sel.length;
   return `<div class="addfoot">
-    <button class="btn sm" data-act="newProduct" data-fromadd="1">+ Продукт</button>
-    <button class="btn sm" data-act="newDish" data-fromadd="1">+ Блюдо</button>
-    <button class="btn sm push-right" data-act="closeAdd">Отмена</button>
+    ${n ? `<span class="selcount">Выбрано: ${n}</span>` : ''}
+    <button class="btn push-right" data-act="closeAdd">Отмена</button>
     <button class="btn primary" data-act="selNext" ${n ? '' : 'disabled'}>Далее${n ? ` (${n})` : ''}</button>
   </div>`;
 }
@@ -1353,8 +1360,8 @@ function qtyStepHTML() {
   return `<div class="qlist">${rows}</div>
     <div class="qtotal num" id="sel-total">${selTotalHTML()}</div>
     <div class="addfoot">
-      <button class="btn sm" data-act="selBack">← Назад</button>
-      <button class="btn sm push-right" data-act="closeAdd">Отмена</button>
+      <button class="btn" data-act="selBack">← Назад</button>
+      <button class="btn push-right" data-act="closeAdd">Отмена</button>
       <button class="btn primary" data-act="selAdd">Добавить (${S.ui.sel.length})</button>
     </div>`;
 }
@@ -1923,7 +1930,7 @@ document.addEventListener('keydown', e => {
     if (S.ui.adding) { S.ui.adding = null; render(); return; }
   }
   if (e.key !== 'Enter') return;
-  if (t.id === 'add-search') { e.preventDefault(); const first = visibleProducts(S.ui.query, S.ui.addCat)[0]; if (first) toggleSel(first.id, document.querySelector(`[data-act="toggleSel"][data-pid="${CSS.escape(first.id)}"]`)); }
+  if (t.id === 'add-search') { e.preventDefault(); const first = filteredProducts(S.ui.query, S.ui.addCat)[0]; if (first) toggleSel(first.id, document.querySelector(`[data-act="toggleSel"][data-pid="${CSS.escape(first.id)}"]`)); }
   else if (t.dataset.selq !== undefined) { e.preventDefault(); const nx = document.getElementById('sq-' + (Number(t.dataset.selq) + 1)); if (nx) { nx.focus(); nx.select(); } else addSelected(); }
   else if (t.id === 'dm-search') { e.preventDefault(); const bt = $('#dm-results [data-act="dishAdd"]'); if (bt) dishAdd(bt.dataset.pid); }
   else if (t.dataset.dg !== undefined || t.id === 'dm-yield' || t.id === 'dm-portion') { e.preventDefault(); t.blur(); }
