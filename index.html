@@ -789,12 +789,12 @@ function pxCellHTML(p, sh, tag) {
   if (!shopAllowed(p.id, sh.id, true)) return `<${tag} class="na" data-pxcell="${esc(p.id + '__' + sh.id)}"></${tag}>`;
   const row = S.pxDraft[p.id] || {}, saved = S.prices.prices[p.id] || {};
   const best = bestPrice(p.id, S.pxDraft);
-  const c = row[sh.id] || {}, id = p.id + '__' + sh.id, unit = c.unit === 'pc' && p.piece ? 'pc' : 'g';
+  const c = row[sh.id] || {}, id = p.id + '__' + sh.id, unit = p.piece && c.unit !== 'g' ? 'pc' : 'g'; // pieces first for products with a piece weight
   const cls = [best && best.n > 1 && best.shop === sh.id ? 'best' : '', S.ui.pxBad.has(id) ? 'bad' : ''].join(' ');
   return `<${tag} class="${cls}" data-pxcell="${esc(id)}"><div class="pcell">
       <input id="pxp-${esc(id)}" data-px="price" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.price ?? '')}" placeholder="цена" aria-label="Цена: ${esc(p.name)}, ${esc(sh.name)}"><span class="u">₽</span>
       <input id="pxq-${esc(id)}" data-px="qty" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.qty ?? '')}" placeholder="${unit === 'pc' ? 'шт' : 'вес'}" aria-label="Вес или количество в упаковке">
-      ${p.piece ? `<select id="pxu-${esc(id)}" data-px="unit" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" aria-label="Единица"><option value="g" ${unit === 'g' ? 'selected' : ''}>г</option><option value="pc" ${unit === 'pc' ? 'selected' : ''}>шт</option></select>` : '<span class="u">г</span>'}
+      ${p.piece ? `<select id="pxu-${esc(id)}" data-px="unit" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" aria-label="Единица"><option value="pc" ${unit === 'pc' ? 'selected' : ''}>шт</option><option value="g" ${unit === 'g' ? 'selected' : ''}>г</option></select>` : '<span class="u">г</span>'}
       <span class="per" data-pxper="${esc(id)}">${pxPerText(c, p, saved[sh.id])}</span>
     </div></${tag}>`;
 }
@@ -880,7 +880,7 @@ function refreshPxRow(pid) {
 function pxEdit(t) {
   const { pid, sid } = t.dataset;
   const row = S.pxDraft[pid] || (S.pxDraft[pid] = {});
-  const c = row[sid] || (row[sid] = { unit: 'g' });
+  const c = row[sid] || (row[sid] = { unit: S.products[pid] && S.products[pid].piece ? 'pc' : 'g' });
   c[t.dataset.px] = t.value;
   if (t.dataset.px === 'unit') { const q = document.getElementById('pxq-' + pid + '__' + sid); if (q) q.placeholder = t.value === 'pc' ? 'шт' : 'вес'; }
   S.ui.pxBad.delete(pid + '__' + sid);
@@ -897,7 +897,7 @@ function applyPrices() {
     const p = nv(c.price), q = nv(c.qty);
     if (p === '' && q === '') continue;
     if (!(p > 0) || !(q > 0)) { bad.add(pid + '__' + sh.id); continue; }
-    const unit = c.unit === 'pc' && S.products[pid] && S.products[pid].piece ? 'pc' : 'g';
+    const unit = S.products[pid] && S.products[pid].piece && c.unit !== 'g' ? 'pc' : 'g';
     const old = (S.prices.prices[pid] || {})[sh.id];
     const same = old && old.price === p && old.qty === q && (old.unit || 'g') === unit;
     (out[pid] || (out[pid] = {}))[sh.id] = { price: p, qty: q, unit, date: same ? old.date : t };
