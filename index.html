@@ -324,6 +324,7 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .dsum:not(:empty) { padding: 10px 12px; }
 .dsum b { color: var(--ink); }
 .dsline .mac:first-child { margin-left: 0; }
+.f.portions .field { max-width: 160px; }
 .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; }
 .confirm span { flex: 1 1 160px; }
 
@@ -793,7 +794,7 @@ function pxCellHTML(p, sh, tag) {
   const cls = [best && best.n > 1 && best.shop === sh.id ? 'best' : '', S.ui.pxBad.has(id) ? 'bad' : ''].join(' ');
   return `<${tag} class="${cls}" data-pxcell="${esc(id)}"><div class="pcell">
       <input id="pxp-${esc(id)}" data-px="price" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.price ?? '')}" placeholder="цена" aria-label="Цена: ${esc(p.name)}, ${esc(sh.name)}"><span class="u">₽</span>
-      <input id="pxq-${esc(id)}" data-px="qty" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.qty ?? '')}" placeholder="${unit === 'pc' ? 'шт' : 'вес'}" aria-label="Вес или количество в упаковке">
+      <input id="pxq-${esc(id)}" data-px="qty" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.qty ?? (unit === 'pc' ? '1' : ''))}" placeholder="${unit === 'pc' ? 'шт' : 'вес'}" aria-label="Вес или количество в упаковке">
       ${p.piece ? `<select id="pxu-${esc(id)}" data-px="unit" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" aria-label="Единица"><option value="pc" ${unit === 'pc' ? 'selected' : ''}>шт</option><option value="g" ${unit === 'g' ? 'selected' : ''}>г</option></select>` : '<span class="u">г</span>'}
       <span class="per" data-pxper="${esc(id)}">${pxPerText(c, p, saved[sh.id])}</span>
     </div></${tag}>`;
@@ -880,8 +881,10 @@ function refreshPxRow(pid) {
 function pxEdit(t) {
   const { pid, sid } = t.dataset;
   const row = S.pxDraft[pid] || (S.pxDraft[pid] = {});
-  const c = row[sid] || (row[sid] = { unit: S.products[pid] && S.products[pid].piece ? 'pc' : 'g' });
+  const pc = S.products[pid] && S.products[pid].piece;
+  const c = row[sid] || (row[sid] = pc ? { unit: 'pc', qty: '1' } : { unit: 'g' });
   c[t.dataset.px] = t.value;
+  if (t.dataset.px === 'unit' && t.value === 'g' && c.qty === '1') { c.qty = ''; const q0 = document.getElementById('pxq-' + pid + '__' + sid); if (q0) q0.value = ''; }
   if (t.dataset.px === 'unit') { const q = document.getElementById('pxq-' + pid + '__' + sid); if (q) q.placeholder = t.value === 'pc' ? 'шт' : 'вес'; }
   S.ui.pxBad.delete(pid + '__' + sid);
   t.closest('td')?.classList.remove('bad');
@@ -1140,19 +1143,25 @@ function costPer100(pid, depth = 0) {
   const b = bestPrice(pid); return b ? b.v : null;
 }
 
+/* How many portions a saved dish is split into (older dishes stored a portion weight instead). */
+function dishPortions(p) {
+  if (p.recipe.portions > 0) return String(p.recipe.portions);
+  const W = dishCalc(p.recipe).W;
+  return p.piece > 0 && W > 0 ? String(Math.max(1, Math.round(W / p.piece))) : '1';
+}
 function openDishModal(editId, fromAdd) {
   const p = editId && S.products[editId];
   const dishCat = S.categories.find(c => norm(c.name) === 'блюда');
   S.modal = { kind: 'dish', editId: editId || null, fromAdd: !!fromAdd, q: '', err: '',
     data: p && p.recipe
-      ? { name: p.name, cat: hasCat(p.cat) ? p.cat : '', newcat: '', items: clone(p.recipe.items), yield: p.recipe.yield ?? '', portion: p.piece ?? '' }
-      : { name: fromAdd ? S.ui.query : '', cat: dishCat ? dishCat.id : '__new', newcat: dishCat ? '' : 'Блюда', items: [], yield: '', portion: '' } };
+      ? { name: p.name, cat: hasCat(p.cat) ? p.cat : '', newcat: '', items: clone(p.recipe.items), portions: dishPortions(p) }
+      : { name: fromAdd ? S.ui.query : '', cat: dishCat ? dishCat.id : '__new', newcat: dishCat ? '' : 'Блюда', items: [], portions: '1' } };
   renderModal();
 }
 function syncDishFields() {
   const d = S.modal && S.modal.data; if (!d || !$('#dm-name')) return;
   d.name = $('#dm-name').value; d.cat = $('#dm-cat').value; d.newcat = $('#dm-newcat').value;
-  d.yield = $('#dm-yield').value; d.portion = $('#dm-portion').value;
+  d.portions = $('#dm-portions').value;
 }
 function dishRowsHTML() {
   const items = S.modal.data.items;
@@ -1173,12 +1182,11 @@ function dishResultsHTML() {
   return list.map(p => `<button type="button" class="res" data-act="dishAdd" data-pid="${esc(p.id)}"><span>${esc(p.name)}</span><small>${r0(p.kcal)} ккал/100 г</small></button>`).join('');
 }
 function dishSumHTML() {
-  const d = S.modal.data, c = dishCalc(d), portion = num(d.portion);
+  const d = S.modal.data, c = dishCalc({ items: d.items }), n = num(d.portions);
   if (!d.items.length) return '';
-  const W = c.W, cooked = num(d.yield) > 0;
-  return `<div class="dsline num">Вес: <b>${r0(c.raw)} г</b>${cooked ? ` → готового <b>${r0(W)} г</b>` : ''} · всего <b>${r0(c.t.kcal)}</b> ккал</div>
-    ${c.per ? `<div class="dsline num">На 100 г: <b>${r0(c.per.kcal)} ккал</b> · ${dots(c.per)}</div>` : ''}
-    ${c.per && portion > 0 ? `<div class="dsline num">Порция ${r0(portion)} г: <b>${r0(c.per.kcal * portion / 100)} ккал</b></div>` : ''}`;
+  const one = n > 0 ? Object.fromEntries(MAC.map(k => [k, c.t[k] / n])) : null;
+  return `<div class="dsline num">Всё блюдо: <b>${r0(c.t.kcal)} ккал</b> · ${dots(c.t)}</div>
+    ${one ? `<div class="dsline num">1 порция${n !== 1 ? ` из ${nf1.format(n)}` : ''}: <b>${r0(one.kcal)} ккал</b> · ${dots(one)}</div>` : ''}`;
 }
 function dishModalHTML() {
   const m = S.modal, d = m.data, catSel = d.cat === '__new' ? '__new' : hasCat(d.cat) ? d.cat : '';
@@ -1197,11 +1205,8 @@ function dishModalHTML() {
         <input class="field" id="dm-search" type="search" value="${esc(m.q)}" placeholder="Добавить продукт из базы…" autocomplete="off">
         <div class="dres" id="dm-results">${dishResultsHTML()}</div>
       </div>
-      <div class="grid2">
-        <label class="f"><span>Вес готового, г</span><input class="field" id="dm-yield" type="number" inputmode="decimal" min="0" step="any" value="${esc(d.yield)}" placeholder="как у сырых"></label>
-        <label class="f"><span>Порция, г</span><input class="field" id="dm-portion" type="number" inputmode="decimal" min="0" step="any" value="${esc(d.portion)}" placeholder="необязательно"></label>
-      </div>
-      <p class="fine">При варке и жарке вес меняется. Взвесьте готовое блюдо, и КБЖУ на 100 г посчитается точнее. Порция позволит добавлять блюдо в дневник порциями.</p>
+      <label class="f portions"><span>На сколько порций делится</span><input class="field" id="dm-portions" type="number" inputmode="decimal" min="0" step="any" value="${esc(d.portions)}"></label>
+      <p class="fine">В дневнике 1 порция считается за 1 шт.</p>
       <div class="dsum" id="dm-sum">${dishSumHTML()}</div>
       <p class="err" id="dm-err" ${m.err ? '' : 'hidden'}>${esc(m.err || '')}</p>
       <div class="row-actions"><button class="btn primary" type="submit">Сохранить</button><button class="btn" type="button" data-act="closeModal">Отмена</button></div>
@@ -1217,21 +1222,20 @@ function dishAdd(pid) {
 }
 async function saveDish() {
   syncDishFields();
-  const m = S.modal, d = m.data, name = d.name.trim(), y = String(d.yield).trim(), por = String(d.portion).trim();
+  const m = S.modal, d = m.data, name = d.name.trim(), portions = num(d.portions);
   let err = '';
   if (!name) err = 'Введите название блюда.';
   else if (!d.items.length) err = 'Добавьте хотя бы один ингредиент.';
   else if (d.items.some(it => !(num(it.g) > 0))) err = 'У каждого ингредиента нужен вес больше нуля.';
-  else if (y && !(num(y) > 0)) err = 'Вес готового блюда должен быть больше нуля или оставьте поле пустым.';
-  else if (por && !(num(por) > 0)) err = 'Порция должна быть больше нуля или оставьте поле пустым.';
+  else if (!(portions > 0)) err = 'Укажите, на сколько порций делится блюдо (например, 1).';
   else if (d.cat === '__new' && !d.newcat.trim()) err = 'Введите название новой категории.';
   if (err) { m.err = err; const e = $('#dm-err'); e.textContent = err; e.hidden = false; return; }
   const cat = d.cat === '__new' ? addCategory(d.newcat) : d.cat;
   const items = d.items.map(it => { const cur = S.products[it.pid], src = cur || it; return { pid: it.pid, g: num(it.g), name: src.name, kcal: src.kcal, p: src.p, f: src.f, c: src.c }; });
-  const recipe = { items, yield: y ? num(y) : null };
-  const per = dishCalc(recipe).per;
+  const recipe = { items, yield: null, portions };
+  const calc = dishCalc(recipe), per = calc.per;
   const r = v => Math.round(v * 10) / 10;
-  const prod = { id: m.editId || newId(), name, kcal: r(per.kcal), p: r(per.p), f: r(per.f), c: r(per.c), piece: por ? num(por) : null, cat: cat || '', onlyShop: '', recipe };
+  const prod = { id: m.editId || newId(), name, kcal: r(per.kcal), p: r(per.p), f: r(per.f), c: r(per.c), piece: Math.round(calc.W / portions * 10) / 10, cat: cat || '', onlyShop: '', recipe };
   S.products[prod.id] = prod;
   const fromAdd = m.fromAdd;
   S.modal = null;
@@ -1316,7 +1320,7 @@ function resultsHTML() {
   for (const p of matches) { const k = hasCat(p.cat) ? p.cat : UNCAT; counts[k] = (counts[k] || 0) + 1; }
   const list = filteredProducts(S.ui.query, S.ui.addCat);
   const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res selrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
-      <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${r0(x.kcal)} ккал / 100 г${x.piece ? ` · ${x.recipe ? 'порция' : '1 шт'} ≈ ${r0(x.piece)} г` : ''}${x.recipe ? ' · блюдо' : ''}</small></span></button>`; };
+      <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${r0(x.kcal)} ккал / 100 г${x.recipe ? ` · порция ${r0(x.kcal * x.piece / 100)} ккал` : x.piece ? ` · 1 шт ≈ ${r0(x.piece)} г` : ''}</small></span></button>`; };
   const none = !list.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
   return `${chipsHTML(S.ui.addCat, 'addCat', counts)}<div class="results">${list.map(row).join('')}</div>${none}<div id="add-foot">${addFootHTML()}</div>`;
 }
@@ -1409,7 +1413,7 @@ function plistHTML() {
 }
 function prowHTML(p) {
   return `<div class="prow">
-    <div class="pn">${esc(p.name)}${p.recipe ? `<small class="num">Блюдо · ингредиентов: ${p.recipe.items.length}${p.piece ? ` · порция ${r0(p.piece)} г` : ''}</small>` : p.piece ? `<small class="num">1 шт ≈ ${r0(p.piece)} г</small>` : ''}</div>
+    <div class="pn">${esc(p.name)}${p.recipe ? `<small class="num">Блюдо · ингредиентов: ${p.recipe.items.length} · порций: ${dishPortions(p)}</small>` : p.piece ? `<small class="num">1 шт ≈ ${r0(p.piece)} г</small>` : ''}</div>
     <div class="facts"><span class="k"><em>ккал</em>${r1(p.kcal)}</span><span><em>Б</em>${r1(p.p)}</span><span><em>Ж</em>${r1(p.f)}</span><span><em>У</em>${r1(p.c)}</span></div>
     <div class="acts"><button class="mini" data-act="editProduct" data-pid="${esc(p.id)}">Изменить</button><button class="mini" data-act="delProduct" data-pid="${esc(p.id)}" aria-label="Удалить ${esc(p.name)}">✕</button></div>
     ${S.ui.confirmProd === p.id ? `<div class="confirm"><span>Удалить «${esc(p.name)}» из базы? Записи в дневнике останутся.</span><button class="btn sm danger" data-act="delProductYes" data-pid="${esc(p.id)}">Удалить</button><button class="btn sm" data-act="cancelConfirm">Отмена</button></div>` : ''}
@@ -1860,8 +1864,8 @@ document.addEventListener('input', e => {
     const src = S.products[it.pid] || it, k = document.querySelector(`[data-dk="${i}"]`);
     if (k) k.innerHTML = `${r0((src.kcal || 0) * (num(it.g) || 0) / 100)}<small>ккал</small>`;
     $('#dm-sum').innerHTML = dishSumHTML();
-  } else if ((t.id === 'dm-yield' || t.id === 'dm-portion') && S.modal) {
-    S.modal.data[t.id === 'dm-yield' ? 'yield' : 'portion'] = t.value; $('#dm-sum').innerHTML = dishSumHTML();
+  } else if (t.id === 'dm-portions' && S.modal) {
+    S.modal.data.portions = t.value; $('#dm-sum').innerHTML = dishSumHTML();
   } else if (t.id === 'prod-search') {
     S.ui.prodQuery = t.value; $('#plist').innerHTML = plistHTML();
   } else if (t.dataset.px && S.pxDraft) {
@@ -1932,7 +1936,7 @@ document.addEventListener('keydown', e => {
   if (t.id === 'add-search') { e.preventDefault(); const first = filteredProducts(S.ui.query, S.ui.addCat)[0]; if (first) toggleSel(first.id, document.querySelector(`[data-act="toggleSel"][data-pid="${CSS.escape(first.id)}"]`)); }
   else if (t.dataset.selq !== undefined) { e.preventDefault(); const nx = document.getElementById('sq-' + (Number(t.dataset.selq) + 1)); if (nx) { nx.focus(); nx.select(); } else addSelected(); }
   else if (t.id === 'dm-search') { e.preventDefault(); const bt = $('#dm-results [data-act="dishAdd"]'); if (bt) dishAdd(bt.dataset.pid); }
-  else if (t.dataset.dg !== undefined || t.id === 'dm-yield' || t.id === 'dm-portion') { e.preventDefault(); t.blur(); }
+  else if (t.dataset.dg !== undefined || t.id === 'dm-portions') { e.preventDefault(); t.blur(); }
   else if (t.dataset.catname || t.dataset.shopname || t.dataset.px) { e.preventDefault(); t.blur(); }
   else if (t.dataset.grams) { t.blur(); }
 });

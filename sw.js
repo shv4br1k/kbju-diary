@@ -1,5 +1,5 @@
 /* Keeps the app working offline. Bump VERSION to make every device pick up a new release. */
-const VERSION = 'kbju-v8';
+const VERSION = 'kbju-v9';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
