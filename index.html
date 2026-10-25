@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Дневник КБЖУ</title>
-<meta name="theme-color" content="#111613">
+<meta name="theme-color" content="#15110E">
 <meta name="description" content="Личный дневник калорий и КБЖУ">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -16,9 +16,10 @@
 /* Layout: one narrow column like a food label — sticky header with tabs, day summary, then meal cards. */
 :root {
   /* Always dark, by request. */
-  --bg: #111613; --surface: #19201C; --surface-2: #151B18; --ink: #E6ECE8; --muted: #93A199;
-  --line: #2A3530; --accent: #5BBE93; --accent-ink: #0D1511; --accent-soft: #1D3129;
-  --prot: #5A8EE6; --fat: #C0782A; --carb: #B474CE; --warn: #F07C66; --warn-soft: #3A201B;
+  /* Warm dark palette with a coral-orange accent. */
+  --bg: #15110E; --surface: #201B17; --surface-2: #1A1612; --ink: #EFE7E1; --muted: #A69A90;
+  --line: #352D27; --accent: #E07A55; --accent-ink: #1B0F0A; --accent-soft: #3A2318;
+  --prot: #5A8EE6; --fat: #B0901F; --carb: #B474CE; --warn: #EF5B5B; --warn-soft: #3D1D1D;
   --shadow: 0 1px 2px rgba(0,0,0,.3);
   color-scheme: dark;
   --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
@@ -443,7 +444,7 @@ body.sheet-open { overflow: hidden; }
 textarea.field { min-height: 120px; font-family: ui-monospace, monospace; font-size: 12px; }
 
 /* Modal */
-.overlay { position: fixed; inset: 0; z-index: 20; background: rgba(10, 18, 14, .45); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.overlay { position: fixed; inset: 0; z-index: 20; background: rgba(15, 10, 8, .55); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 .modal { width: 100%; max-width: 440px; max-height: 100%; overflow: auto; background: var(--surface); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .modal h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 17px; }
 .label100 { border: 2px solid var(--ink); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
