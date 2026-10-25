@@ -338,6 +338,8 @@ body.sheet-open { overflow: hidden; }
 .sh-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .sh-body > .sh-in { display: flex; flex-direction: column; gap: 12px; padding-block: 4px 20px; }
 .sh-search { padding: 12px 14px; border-radius: 14px; font-size: 16px; }
+.seg.kindseg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+.seg.kindseg button { padding: 9px 10px; font-size: 15px; }
 .sh-chips .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .sh-chips .chip { flex: none; padding: 7px 13px; font-size: 14px; }
 #add-results { display: flex; flex-direction: column; gap: 12px; }
@@ -1279,6 +1281,7 @@ async function saveDish() {
   const fromAdd = m.fromAdd;
   S.modal = null;
   if (fromAdd && S.ui.adding) { if (selIdx(prod.id) < 0) S.ui.sel.push({ pid: prod.id, qty: prod.piece ? '1' : '100', unit: prod.piece ? 'pc' : 'g' }); S.ui.query = ''; }
+  S.ui.prodKind = 'dish';
   render();
   await run(S.store.saveProduct(prod));
 }
@@ -1386,21 +1389,30 @@ function renderSheet() {
   sheetKey = key;
 }
 
+/* Products and dishes live in one base; these split them into two tabs. */
+const kindOf = p => p.recipe ? 'dish' : 'prod';
+function kindCounts(list) { const c = { all: list.length }; for (const p of list) { const k = hasCat(p.cat) ? p.cat : UNCAT; c[k] = (c[k] || 0) + 1; } return c; }
+function kindSegHTML(sel, act, q) {
+  const all = filteredProducts(q, 'all'), n = k => all.filter(p => kindOf(p) === k).length;
+  const b = (k, label) => `<button data-act="${act}" data-kind="${k}" aria-pressed="${sel === k}">${label} <span class="ccount">(${n(k)})</span></button>`;
+  return `<div class="seg kindseg" role="group" aria-label="Что показать">${b('prod', 'Продукты')}${b('dish', 'Блюда')}</div>`;
+}
+
 function resultsHTML() {
   if (S.ui.addCat !== 'all' && S.ui.addCat !== UNCAT && !hasCat(S.ui.addCat)) S.ui.addCat = 'all';
-  const matches = filteredProducts(S.ui.query, 'all');
-  const counts = { all: matches.length };
-  for (const p of matches) { const k = hasCat(p.cat) ? p.cat : UNCAT; counts[k] = (counts[k] || 0) + 1; }
-  const list = filteredProducts(S.ui.query, S.ui.addCat);
+  const kind = S.ui.addKind || 'prod', isK = p => kindOf(p) === kind;
+  const counts = kindCounts(filteredProducts(S.ui.query, 'all').filter(isK));
+  const list = filteredProducts(S.ui.query, S.ui.addCat).filter(isK);
   const sub = x => x.piece ? `${r0(x.kcal * x.piece / 100)} ккал, 1 ${pcWord(x)} (${r0(x.piece)} г)` : `${r0(x.kcal)} ккал, 100 г`;
   const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res selrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
       <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${sub(x)}</small></span></button>`; };
-  const none = !list.length ? `<p class="empty sh-empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
-  return `<div class="sh-chips">${chipsHTML(S.ui.addCat, 'addCat', counts)}</div>${list.length ? `<div class="sh-list">${list.map(row).join('')}</div>` : none}`;
+  const emptyText = S.ui.query ? 'Ничего не нашлось.' : kind === 'dish' ? 'Блюд пока нет. Создайте их на вкладке «Продукты» → «Блюда».' : 'Продуктов пока нет. Добавьте их на вкладке «Продукты».';
+  const none = !list.length ? `<p class="empty sh-empty">${emptyText}</p>` : '';
+  return `${kindSegHTML(kind, 'addKind', S.ui.query)}<div class="sh-chips">${chipsHTML(S.ui.addCat, 'addCat', counts)}</div>${list.length ? `<div class="sh-list">${list.map(row).join('')}</div>` : none}`;
 }
 function addFootHTML() {
   const n = S.ui.sel.length;
-  return `<button class="btn primary big" data-act="selNext" ${n ? '' : 'disabled'}>${n ? `Далее · выбрано ${n}` : 'Выберите продукты'}</button>`;
+  return `<button class="btn primary big" data-act="selNext" ${n ? '' : 'disabled'}>${n ? `Далее · выбрано ${n}` : 'Отметьте, что съели'}</button>`;
 }
 function toggleSel(pid, btn) {
   const p = S.products[pid]; if (!p) return;
@@ -1523,17 +1535,22 @@ function productsHTML() {
   return `<div class="toolbar">
       <input class="field" id="prod-search" type="search" placeholder="Поиск по базе" value="${esc(S.ui.prodQuery)}" autocomplete="off">
       <button class="btn" data-act="manageCats">Категории</button>
-      <button class="btn" data-act="newDish">+ Блюдо</button>
-      <button class="btn primary" data-act="newProduct">+ Продукт</button>
+      ${S.ui.prodKind === 'dish' ? '<button class="btn primary" data-act="newDish">+ Блюдо</button>' : '<button class="btn primary" data-act="newProduct">+ Продукт</button>'}
     </div>
-    <div id="prod-chips">${chipsHTML(S.ui.catFilter, 'catFilter')}</div>
-    <p class="label-note">Пищевая ценность указана на 100 г, как на упаковке. Изменения здесь не меняют уже записанные дни.</p>
+    <div id="prod-kind">${kindSegHTML(S.ui.prodKind || 'prod', 'prodKind', S.ui.prodQuery)}</div>
+    <div id="prod-chips">${prodChipsHTML()}</div>
+    <p class="label-note">${S.ui.prodKind === 'dish' ? 'Блюдо собирается из продуктов базы и делится на порции. В дневнике 1 порция = 1 шт.' : 'Пищевая ценность указана на 100 г, как на упаковке.'} Изменения здесь не меняют уже записанные дни.</p>
     <section class="plist" id="plist">${plistHTML()}</section>`;
+}
+function prodChipsHTML() {
+  const kind = S.ui.prodKind || 'prod';
+  return chipsHTML(S.ui.catFilter, 'catFilter', kindCounts(filteredProducts(S.ui.prodQuery, 'all').filter(p => kindOf(p) === kind)));
 }
 function plistHTML() {
   if (S.ui.catFilter !== 'all' && S.ui.catFilter !== UNCAT && !hasCat(S.ui.catFilter)) S.ui.catFilter = 'all';
-  const groups = productGroups(S.ui.prodQuery, S.ui.catFilter);
-  if (!groups.length) return `<div class="prow"><span class="pn">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пустая. Добавьте первый продукт.'}</span></div>`;
+  const kind = S.ui.prodKind || 'prod';
+  const groups = productGroups(S.ui.prodQuery, S.ui.catFilter).map(g => ({ ...g, items: g.items.filter(p => kindOf(p) === kind) })).filter(g => g.items.length);
+  if (!groups.length) return `<div class="prow"><span class="pn">${S.ui.prodQuery ? 'Ничего не нашлось.' : kind === 'dish' ? 'Блюд пока нет. Нажмите «+ Блюдо», чтобы собрать первое.' : 'Продуктов пока нет. Нажмите «+ Продукт».'}</span></div>`;
   if (S.ui.catFilter !== 'all') return groups[0].items.map(prowHTML).join('');
   return groups.map(g => groupHead(g, S.ui.prodQuery) + (isCollapsed(g.id, S.ui.prodQuery) ? '' : g.items.map(prowHTML).join(''))).join('');
 }
@@ -1881,7 +1898,9 @@ document.addEventListener('click', async e => {
     case 'delProductYes': { const id = t.dataset.pid; delete S.products[id]; S.ui.confirmProd = null; $('#plist').innerHTML = plistHTML(); run(S.store.deleteProduct(id)); break; }
     case 'closeModal': closeModal(); break;
     case 'overlay': if (e.target === t && S.modal && S.modal.kind !== 'dish') closeModal(); break;
-    case 'catFilter': S.ui.catFilter = t.dataset.cat; $('#prod-chips').innerHTML = chipsHTML(S.ui.catFilter, 'catFilter'); $('#plist').innerHTML = plistHTML(); break;
+    case 'catFilter': S.ui.catFilter = t.dataset.cat; $('#prod-chips').innerHTML = prodChipsHTML(); $('#plist').innerHTML = plistHTML(); break;
+    case 'prodKind': S.ui.prodKind = t.dataset.kind; S.ui.catFilter = 'all'; render(); break;
+    case 'addKind': S.ui.addKind = t.dataset.kind; S.ui.addCat = 'all'; $('#add-results').innerHTML = resultsHTML(); break;
     case 'addCat': S.ui.addCat = t.dataset.cat; $('#add-results').innerHTML = resultsHTML(); break;
     case 'pxCat': S.ui.pxCat = t.dataset.cat; $('#px-chips').innerHTML = chipsHTML(S.ui.pxCat, 'pxCat'); rerenderPx(); break;
     case 'pxShop': S.ui.pxShop = t.dataset.sid; $('#ptable').innerHTML = ptableHTML(); break;
@@ -1968,7 +1987,7 @@ document.addEventListener('input', e => {
   } else if (t.id === 'dm-portions' && S.modal) {
     S.modal.data.portions = t.value; $('#dm-sum').innerHTML = dishSumHTML();
   } else if (t.id === 'prod-search') {
-    S.ui.prodQuery = t.value; $('#plist').innerHTML = plistHTML();
+    S.ui.prodQuery = t.value; $('#plist').innerHTML = plistHTML(); $('#prod-chips').innerHTML = prodChipsHTML(); $('#prod-kind').innerHTML = kindSegHTML(S.ui.prodKind || 'prod', 'prodKind', S.ui.prodQuery);
   } else if (t.dataset.px && S.pxDraft) {
     pxEdit(t);
   } else if (t.id === 'px-search') {
