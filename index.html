@@ -1406,29 +1406,40 @@ function offNormalize(list) {
     const n = p.nutriments || {};
     let kcal = num(n['energy-kcal_100g']);
     if (!(kcal >= 0) && num(n.energy_100g) >= 0) kcal = num(n.energy_100g) / 4.184;
-    const name = String(p.product_name_ru || p.product_name || '').trim();
-    const brand = (Array.isArray(p.brands) ? p.brands[0] : String(p.brands || '').split(',')[0] || '').trim();
+    const txt = v => v && typeof v === 'object' ? (v.ru || v.main || v.en || Object.values(v)[0] || '') : (v || '');
+    const name = String(txt(p.product_name_ru) || txt(p.product_name) || '').trim();
+    const brand = String(Array.isArray(p.brands) ? p.brands[0] || '' : String(p.brands || '').split(',')[0] || '').trim();
     const serving = num(p.serving_quantity);
     return name && kcal >= 0 ? { code: p.code, name, brand, kcal: r1n(kcal), p: r1n(num(n.proteins_100g) || 0), f: r1n(num(n.fat_100g) || 0), c: r1n(num(n.carbohydrates_100g) || 0), piece: serving > 0 ? r1n(serving) : null } : null;
   }).filter(Boolean);
 }
+/* Several entry points of the same open database are tried in turn; what each one answered is kept for troubleshooting. */
+let offLog = [];
 async function offSearch(q) {
   const enc = encodeURIComponent(q);
-  const urls = [
-    `https://search.openfoodfacts.org/search?q=${enc}&langs=ru,en&page_size=25&fields=${OFF_FIELDS}`,
-    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&lc=ru&fields=${OFF_FIELDS}`,
+  const sources = [
+    ['world', `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}`],
+    ['ru', `https://ru.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}`],
+    ['sal', `https://search.openfoodfacts.org/search?q=${enc}&langs=ru,en&page_size=25`],
+    ['v2', `https://world.openfoodfacts.org/api/v2/search?search_terms=${enc}&page_size=25&fields=${OFF_FIELDS}`],
   ];
-  let last = 'net';
-  for (const u of urls) {
+  offLog = [];
+  if (navigator.onLine === false) throw 'offline';
+  let busy = false;
+  for (const [id, u] of sources) {
     try {
-      const r = await fetch(u, { headers: { Accept: 'application/json' } });
-      if (r.status === 429 || r.status === 503) { last = 'busy'; continue; }
-      if (!r.ok) { last = 'http'; continue; }
-      const j = await r.json();
-      return offNormalize(j.hits || j.products || []);
-    } catch (e) { last = navigator.onLine === false ? 'offline' : 'net'; }
+      const r = await fetch(u);
+      if (r.status === 429 || r.status === 503) { busy = true; offLog.push(id + ':' + r.status); continue; }
+      if (!r.ok) { offLog.push(id + ':' + r.status); continue; }
+      const j = await r.json().catch(() => null);
+      const list = j && (j.hits || j.products);
+      if (!Array.isArray(list)) { offLog.push(id + ':формат'); continue; }
+      const res = offNormalize(list);
+      if (!res.length && list.length) { offLog.push(id + ':пусто'); continue; }
+      return res;
+    } catch (e) { offLog.push(id + ':' + (e && e.name === 'TypeError' ? 'нет доступа' : 'ошибка')); }
   }
-  throw last;
+  throw busy ? 'busy' : 'net';
 }
 function openOff(fromAdd) {
   S.modal = { kind: 'off', fromAdd: !!fromAdd, q: fromAdd ? S.ui.query : (S.ui.prodQuery || ''), results: null, loading: false, err: '' };
@@ -1441,7 +1452,7 @@ async function runOff() {
   m.loading = true; m.err = ''; renderModal();
   try { m.results = await offSearch(q); }
   catch (e) { m.results = null; m.err = e === 'busy' ? 'База сейчас перегружена или слишком много запросов подряд. Подождите минуту и попробуйте снова.' : e === 'offline' ? 'Нет интернета. Поиск в базе работает только онлайн.' : 'Не получилось связаться с базой Open Food Facts. Попробуйте позже.'; }
-  if (S.modal === m) { m.loading = false; renderModal(); }
+  if (S.modal === m) { m.loading = false; m.log = offLog.join(' · '); renderModal(); }
 }
 function offModalHTML() {
   const m = S.modal;
@@ -1453,7 +1464,7 @@ function offModalHTML() {
     <form class="modal" id="off-form" role="dialog" aria-modal="true" aria-labelledby="off-title">
       <h2 id="off-title">Найти в интернете</h2>
       <div class="catrow"><input class="field" id="off-q" type="search" value="${esc(m.q)}" placeholder="Например, творог Простоквашино" autocomplete="off"><button class="btn primary" type="submit" ${m.loading ? 'disabled' : ''}>${m.loading ? 'Ищу…' : 'Найти'}</button></div>
-      ${m.err ? `<p class="err">${esc(m.err)}</p>` : ''}
+      ${m.err ? `<p class="err">${esc(m.err)}</p>${m.log ? `<p class="fine">Технические подробности: ${esc(m.log)}</p>` : ''}` : ''}
       ${m.loading ? '<p class="fine">Ищу в базе Open Food Facts…</p>' : list}
       <p class="fine">Открытая база Open Food Facts, её заполняют обычные пользователи. Выберите продукт, проверьте КБЖУ по упаковке и сохраните его в свою базу.</p>
       <div class="row-actions"><button class="btn" type="button" data-act="closeModal">Закрыть</button></div>
