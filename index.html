@@ -325,6 +325,52 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .dsum b { color: var(--ink); }
 .dsline .mac:first-child { margin-left: 0; }
 .f.portions .field { max-width: 160px; }
+/* Add sheet (full screen over the diary) */
+body.sheet-open { overflow: hidden; }
+.sheet { position: fixed; inset: 0; z-index: 18; background: var(--bg); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); animation: sheetIn .18s ease-out; }
+@keyframes sheetIn { from { transform: translateY(14px); opacity: .5; } }
+.sh-in { max-width: 720px; margin: 0 auto; width: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sh-bar { display: flex; align-items: center; gap: 12px; padding-block: 12px 10px; }
+.sh-back { width: 42px; height: 42px; flex: none; border-radius: 50%; border: 0; background: var(--surface); color: var(--ink); display: grid; place-items: center; }
+.sh-back:hover { background: var(--accent-soft); }
+.sh-bar h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
+.sh-sub { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.sh-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sh-body > .sh-in { display: flex; flex-direction: column; gap: 12px; padding-block: 4px 20px; }
+.sh-search { padding: 12px 14px; border-radius: 14px; font-size: 16px; }
+.sh-chips .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.sh-chips .chip { flex: none; padding: 7px 13px; font-size: 14px; }
+#add-results { display: flex; flex-direction: column; gap: 12px; }
+.sh-list { background: var(--surface); border-radius: 18px; overflow: hidden; }
+.sh-list .res.selrow { width: 100%; border-radius: 0; padding: 14px 16px; gap: 14px; border-top: 1px solid var(--line); }
+.sh-list .res.selrow:first-child { border-top: 0; }
+.sh-list .rnm { font-size: 16px; }
+.sh-list .tick { width: 24px; height: 24px; }
+.sh-empty { padding: 20px 4px; }
+.sh-foot { border-top: 1px solid var(--line); background: var(--bg); }
+.sh-fin { display: flex; gap: 10px; padding-block: 10px 12px; }
+.btn.big { flex: 1; padding: 14px; font-size: 16px; border-radius: 16px; }
+.qcard { background: var(--surface); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.qhead { display: flex; align-items: flex-start; gap: 10px; }
+.qhead .qn { flex: 1; min-width: 0; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }
+.qhead .qn small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.qctl { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+.qctl .qv { text-align: center; font-size: 22px; font-weight: 600; padding: 8px; font-variant-numeric: tabular-nums; }
+.qctl .qv.bad { border-color: var(--warn); }
+.qctl .qu { grid-column: 1 / -1; text-align: center; font-size: 15px; padding: 9px; }
+.stp { height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: 22px; line-height: 1; color: var(--ink); }
+.stp:hover { border-color: var(--accent); }
+.qmeta { font-size: 13px; color: var(--muted); }
+.qmeta b { color: var(--ink); }
+.qmeta .mac:first-of-type { margin-left: 4px; }
+.qcard.qtotal { padding: 14px 16px; font-size: 14px; color: var(--muted); }
+.qt-top { display: flex; justify-content: space-between; align-items: baseline; color: var(--ink); }
+.qt-top b { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.qt-g b { color: var(--ink); }
+.mbar { display: flex; gap: 2px; height: 10px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.mbar i { display: block; height: 100%; }
+.mbar .dp { background: var(--prot); } .mbar .df { background: var(--fat); } .mbar .dc { background: var(--carb); }
+.mbar-l { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; }
 .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; }
 .confirm span { flex: 1 1 160px; }
 
@@ -424,6 +470,7 @@ textarea.field { min-height: 120px; font-family: ui-monospace, monospace; font-s
   </div>
 </header>
 <main><div class="wrap" id="view"><div class="loading">Загружаю дневник…</div></div></main>
+<div id="sheet-root"></div>
 <div id="modal-root"></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
@@ -598,7 +645,9 @@ const view = () => $('#view');
 function render() {
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
   const gear = $('#gearbtn'); if (gear) gear.setAttribute('aria-pressed', String(S.tab === 'profile'));
+  if (S.tab !== 'diary') S.ui.adding = null;
   view().innerHTML = (S.tab === 'products' ? productsHTML() : S.tab === 'prices' ? pricesHTML() : S.tab === 'week' ? weekHTML() : S.tab === 'profile' ? profileHTML() : diaryHTML());
+  renderSheet();
   renderModal();
 }
 
@@ -672,8 +721,8 @@ function mealHTML(m, idx) {
       <button class="mini" data-act="delSnack" data-meal="${m.id}" aria-label="Удалить перекус">✕</button></div>` : '';
   const confirm = S.ui.confirmDel === m.id ? `<div class="confirm"><span>Удалить перекус вместе с продуктами (${m.items.length})?</span>
       <button class="btn sm danger" data-act="delSnackYes" data-meal="${m.id}">Удалить</button><button class="btn sm" data-act="cancelConfirm">Отмена</button></div>` : '';
-  const add = S.ui.adding === m.id ? addPanelHTML() : `<button class="addbtn" data-act="openAdd" data-meal="${m.id}">+ продукт</button>`;
-  const closed = S.ui.mealsClosed.has(m.id) && S.ui.adding !== m.id;
+  const add = `<button class="addbtn" data-act="openAdd" data-meal="${m.id}">+ продукт</button>`;
+  const closed = S.ui.mealsClosed.has(m.id);
   return `<article class="meal ${snack ? 'snack' : ''} ${closed ? 'closed' : ''}" data-mealcard="${m.id}">
     <div class="meal-head">
       ${snack ? `<span class="handle" draggable="true" data-handle="${m.id}" title="Перетащите, чтобы переместить" aria-hidden="true">⋮⋮</span>` : ''}
@@ -683,16 +732,6 @@ function mealHTML(m, idx) {
     </div>
     ${closed ? '' : confirm + items + add}
   </article>`;
-}
-
-function addPanelHTML() {
-  const qty = S.ui.step === 'qty' && S.ui.sel.length;
-  return `<div class="addpanel">
-    ${qty ? '<div class="steptitle">Сколько съедено</div>' : `<div class="addpanel-top">
-      <input class="field" id="add-search" type="search" placeholder="Найти продукт или блюдо…" autocomplete="off" value="${esc(S.ui.query)}">
-    </div>`}
-    <div id="add-results">${resultsHTML()}</div>
-  </div>`;
 }
 
 /* ---------- prices ---------- */
@@ -1307,74 +1346,139 @@ function addCategory(name) {
   return c.id;
 }
 
-/* ---------- add panel: pick several products, then set amounts ---------- */
+/* ---------- add sheet: a full-screen page over the diary (pick products, then amounts) ---------- */
 const selIdx = pid => S.ui.sel.findIndex(s => s.pid === pid);
-function selGrams(s) { const p = S.products[s.pid], q = num(s.qty); if (!p || !(q > 0)) return 0; return s.unit === 'pc' && p.piece ? q * p.piece : q; }
+function selGrams(s) {
+  const p = S.products[s.pid], q = num(s.qty); if (!p || !(q > 0)) return 0;
+  if (s.unit === 'pc' && p.piece) return q * p.piece;
+  if (s.unit === 'kcal') return p.kcal > 0 ? q / p.kcal * 100 : 0;
+  return q;
+}
 const dots = t => `<span class="mac"><i class="mdot dp"></i>Б ${r0(t.p)}</span> <span class="mac"><i class="mdot df"></i>Ж ${r0(t.f)}</span> <span class="mac"><i class="mdot dc"></i>У ${r0(t.c)}</span>`;
+const pcWord = p => p.recipe ? 'порция' : 'шт';
+const ICON_BACK = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+
+function sheetHTML() {
+  const meal = findMeal(S.ui.adding); if (!meal) return '';
+  const qty = S.ui.step === 'qty' && S.ui.sel.length;
+  const title = qty ? 'Сколько съедено' : MEAL_NAMES[meal.type];
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <header class="sh-top"><div class="sh-in sh-bar">
+      <button class="sh-back" data-act="sheetBack" aria-label="${qty ? 'К списку' : 'Закрыть'}">${ICON_BACK}</button>
+      <h2>${esc(title)}</h2>
+      ${qty ? `<span class="sh-sub">${esc(MEAL_NAMES[meal.type])}</span>` : ''}
+    </div></header>
+    <div class="sh-body" id="sh-body"><div class="sh-in">
+      ${qty ? qtyStepHTML() : `<input class="field sh-search" id="add-search" type="search" placeholder="Найти продукт или блюдо…" autocomplete="off" value="${esc(S.ui.query)}">
+      <div id="add-results">${resultsHTML()}</div>`}
+    </div></div>
+    <footer class="sh-foot"><div class="sh-in sh-fin" id="add-foot">${qty ? qtyFootHTML() : addFootHTML()}</div></footer>
+  </div>`;
+}
+let sheetKey = '';
+function renderSheet() {
+  const root = $('#sheet-root'); if (!root) return;
+  if (!S.ui.adding || S.tab !== 'diary') { root.innerHTML = ''; document.body.classList.remove('sheet-open'); sheetKey = ''; return; }
+  const key = S.ui.adding + ':' + S.ui.step, body = $('#sh-body'), top = key === sheetKey && body ? body.scrollTop : 0;
+  root.innerHTML = sheetHTML();
+  document.body.classList.add('sheet-open');
+  const nb = $('#sh-body'); if (nb) nb.scrollTop = top;
+  sheetKey = key;
+}
 
 function resultsHTML() {
-  if (S.ui.step === 'qty' && S.ui.sel.length) return qtyStepHTML();
   if (S.ui.addCat !== 'all' && S.ui.addCat !== UNCAT && !hasCat(S.ui.addCat)) S.ui.addCat = 'all';
   const matches = filteredProducts(S.ui.query, 'all');
   const counts = { all: matches.length };
   for (const p of matches) { const k = hasCat(p.cat) ? p.cat : UNCAT; counts[k] = (counts[k] || 0) + 1; }
   const list = filteredProducts(S.ui.query, S.ui.addCat);
+  const sub = x => x.piece ? `${r0(x.kcal * x.piece / 100)} ккал, 1 ${pcWord(x)} (${r0(x.piece)} г)` : `${r0(x.kcal)} ккал, 100 г`;
   const row = x => { const on = selIdx(x.id) >= 0; return `<button class="res selrow ${on ? 'on' : ''}" data-act="toggleSel" data-pid="${esc(x.id)}" aria-pressed="${on}">
-      <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${r0(x.kcal)} ккал / 100 г${x.recipe ? ` · порция ${r0(x.kcal * x.piece / 100)} ккал` : x.piece ? ` · 1 шт ≈ ${r0(x.piece)} г` : ''}</small></span></button>`; };
-  const none = !list.length ? `<p class="empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
-  return `${chipsHTML(S.ui.addCat, 'addCat', counts)}<div class="results">${list.map(row).join('')}</div>${none}<div id="add-foot">${addFootHTML()}</div>`;
+      <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${sub(x)}</small></span></button>`; };
+  const none = !list.length ? `<p class="empty sh-empty">${Object.keys(S.products).length ? 'Ничего не нашлось.' : 'База пока пустая. Добавьте продукты на вкладке «Продукты».'}</p>` : '';
+  return `<div class="sh-chips">${chipsHTML(S.ui.addCat, 'addCat', counts)}</div>${list.length ? `<div class="sh-list">${list.map(row).join('')}</div>` : none}`;
 }
 function addFootHTML() {
   const n = S.ui.sel.length;
-  return `<div class="addfoot">
-    ${n ? `<span class="selcount">Выбрано: ${n}</span>` : ''}
-    <button class="btn push-right" data-act="closeAdd">Отмена</button>
-    <button class="btn primary" data-act="selNext" ${n ? '' : 'disabled'}>Далее${n ? ` (${n})` : ''}</button>
-  </div>`;
+  return `<button class="btn primary big" data-act="selNext" ${n ? '' : 'disabled'}>${n ? `Далее · выбрано ${n}` : 'Выберите продукты'}</button>`;
 }
 function toggleSel(pid, btn) {
   const p = S.products[pid]; if (!p) return;
   const i = selIdx(pid);
   if (i >= 0) S.ui.sel.splice(i, 1); else S.ui.sel.push({ pid, qty: p.piece ? '1' : '100', unit: p.piece ? 'pc' : 'g' });
   if (btn) { const on = i < 0; btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); }
-  const f = $('#add-foot'); if (f) f.innerHTML = addFootHTML();
+  const f = $('#add-foot'); if (f && S.ui.step !== 'qty') f.innerHTML = addFootHTML();
 }
 
 function selTotals() {
   const t = { kcal: 0, p: 0, f: 0, c: 0 };
-  for (const s of S.ui.sel) { const p = S.products[s.pid], g = selGrams(s); if (p) for (const k of ['kcal', 'p', 'f', 'c']) t[k] += p[k] * g / 100; }
+  for (const s of S.ui.sel) { const p = S.products[s.pid], g = selGrams(s); if (p) for (const k of MACROS) t[k] += p[k] * g / 100; }
   return t;
 }
-function selTotalHTML() { const t = selTotals(); return `Итого: <b>${r0(t.kcal)}</b> ккал · ${dots(t)}`; }
+const MACROS = ['kcal', 'p', 'f', 'c'];
+function macroBarHTML(t) {
+  const parts = [['dp', t.p * 4], ['df', t.f * 9], ['dc', t.c * 4]], sumK = parts.reduce((a, x) => a + x[1], 0);
+  if (!sumK) return '';
+  return `<div class="mbar">${parts.filter(x => x[1] > 0).map(x => `<i class="${x[0]}" style="flex:${x[1]}"></i>`).join('')}</div>
+    <div class="mbar-l num">${parts.map((x, i) => `<span><i class="mdot ${x[0]}"></i>${['Белки', 'Жиры', 'Углеводы'][i]} ${Math.round(x[1] / sumK * 100)}%</span>`).join('')}</div>`;
+}
+function selTotalHTML() {
+  const t = selTotals();
+  return `<div class="qt-top"><span>Всего</span><b class="num">${r0(t.kcal)} ккал</b></div>
+    <div class="qt-g num">Б <b>${r1(t.p)}</b> г · Ж <b>${r1(t.f)}</b> г · У <b>${r1(t.c)}</b> г</div>
+    ${macroBarHTML(t)}`;
+}
+function qMetaHTML(s) {
+  const p = S.products[s.pid], g = selGrams(s);
+  if (!g) return 'Введите количество';
+  const t = Object.fromEntries(MACROS.map(k => [k, p[k] * g / 100]));
+  return `<b>${r0(t.kcal)} ккал</b> · ${r0(g)} г · ${dots(t)}`;
+}
 function qtyStepHTML() {
-  const rows = S.ui.sel.map((s, i) => {
+  const cards = S.ui.sel.map((s, i) => {
     const p = S.products[s.pid]; if (!p) return '';
-    const g = selGrams(s), pc = p.recipe ? 'порц' : 'шт';
-    return `<div class="qrow">
-      <div class="qn">${esc(p.name)}<small class="num">${r1(p.kcal)} ккал / 100 г${p.piece && s.unit === 'pc' ? ` · ${r0(g)} г` : ''}</small></div>
-      <div class="qin">
-        <input class="field" id="sq-${i}" data-selq="${i}" type="number" inputmode="decimal" min="0" step="${s.unit === 'pc' ? '0.5' : '1'}" value="${esc(s.qty)}" aria-label="Количество: ${esc(p.name)}">
-        ${p.piece ? `<div class="seg" role="group" aria-label="Единица"><button data-act="selUnit" data-i="${i}" data-unit="g" aria-pressed="${s.unit !== 'pc'}">г</button><button data-act="selUnit" data-i="${i}" data-unit="pc" aria-pressed="${s.unit === 'pc'}">${pc}</button></div>` : '<span class="u">г</span>'}
+    const units = [...(p.piece ? [['pc', `${pcWord(p)} (${r0(p.piece)} г)`]] : []), ['g', 'г'], ['kcal', 'ккал']];
+    return `<section class="qcard">
+      <div class="qhead"><div class="qn">${esc(p.name)}<small class="num">${p.piece ? `${r0(p.kcal * p.piece / 100)} ккал за 1 ${pcWord(p)}` : `${r0(p.kcal)} ккал на 100 г`}</small></div>
+        <button class="del" data-act="selRemove" data-i="${i}" aria-label="Убрать ${esc(p.name)}">×</button></div>
+      <div class="qctl">
+        <button class="stp" data-act="selStep" data-i="${i}" data-d="-1" aria-label="Меньше">−</button>
+        <input class="field qv" id="sq-${i}" data-selq="${i}" type="number" inputmode="decimal" min="0" step="any" value="${esc(s.qty)}" aria-label="Количество: ${esc(p.name)}">
+        <button class="stp" data-act="selStep" data-i="${i}" data-d="1" aria-label="Больше">+</button>
+        <select class="field qu" id="su-${i}" data-selunit="${i}" aria-label="Единица">${units.map(([v, l]) => `<option value="${v}" ${s.unit === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       </div>
-      <span class="qk num" data-selk="${i}">${g ? r0(p.kcal * g / 100) : '—'}<small>ккал</small></span>
-      <button class="del" data-act="selRemove" data-i="${i}" aria-label="Убрать ${esc(p.name)}">×</button>
-    </div>`;
+      <div class="qmeta num" data-selk="${i}">${qMetaHTML(s)}</div>
+    </section>`;
   }).join('');
-  return `<div class="qlist">${rows}</div>
-    <div class="qtotal num" id="sel-total">${selTotalHTML()}</div>
-    <div class="addfoot">
-      <button class="btn" data-act="selBack">← Назад</button>
-      <button class="btn push-right" data-act="closeAdd">Отмена</button>
-      <button class="btn primary" data-act="selAdd">Добавить (${S.ui.sel.length})</button>
-    </div>`;
+  return `${cards}<section class="qcard qtotal" id="sel-total">${selTotalHTML()}</section>`;
+}
+function qtyFootHTML() {
+  return `<button class="btn big" data-act="sheetCancel">Отмена</button><button class="btn primary big" data-act="selAdd">Добавить (${S.ui.sel.length})</button>`;
+}
+function refreshQty(i) {
+  const s = S.ui.sel[i]; if (!s) return;
+  const k = document.querySelector(`[data-selk="${i}"]`); if (k) k.innerHTML = qMetaHTML(s);
+  const tot = $('#sel-total'); if (tot) tot.innerHTML = selTotalHTML();
 }
 function selQtyInput(t) {
   const i = Number(t.dataset.selq), s = S.ui.sel[i]; if (!s) return;
-  s.qty = t.value;
-  const p = S.products[s.pid], g = selGrams(s);
-  const k = document.querySelector(`[data-selk="${i}"]`); if (k) k.innerHTML = `${g ? r0(p.kcal * g / 100) : '—'}<small>ккал</small>`;
-  t.classList.remove('bad');
-  const tot = $('#sel-total'); if (tot) tot.innerHTML = selTotalHTML();
+  s.qty = t.value; t.classList.remove('bad'); refreshQty(i);
+}
+const STEP = { pc: 0.5, g: 10, kcal: 10 };
+function selStep(i, d) {
+  const s = S.ui.sel[i]; if (!s) return;
+  const st = STEP[s.unit] || 1, q = num(s.qty) || 0;
+  const nq = Math.max(st, Math.round((q + d * st) / st) * st);
+  s.qty = String(Math.round(nq * 10) / 10);
+  const el = document.getElementById('sq-' + i); if (el) { el.value = s.qty; el.classList.remove('bad'); }
+  refreshQty(i);
+}
+function selUnitChange(i, unit) {
+  const s = S.ui.sel[i], p = s && S.products[s.pid]; if (!p) return;
+  const g = selGrams(s); s.unit = unit;
+  if (g) s.qty = String(unit === 'pc' ? (Math.round(g / p.piece * 2) / 2 || 0.5) : unit === 'kcal' ? Math.round(g * p.kcal / 100) : Math.round(g));
+  const el = document.getElementById('sq-' + i); if (el) el.value = s.qty;
+  refreshQty(i);
 }
 function addSelected() {
   const meal = findMeal(S.ui.adding); if (!meal) return;
@@ -1386,11 +1490,33 @@ function addSelected() {
   });
   meal.items.push(...added);
   touchDay();
-  S.ui.adding = null; S.ui.sel = []; S.ui.step = 'pick'; S.ui.query = '';
   S.ui.mealsClosed.delete(meal.id);
-  render();
+  closeSheet();
   showUndo(meal, added);
 }
+
+/* The phone's Back button steps back inside the sheet instead of leaving the app. */
+function openAdd(mealId) {
+  S.ui.adding = mealId; S.ui.query = ''; S.ui.sel = []; S.ui.step = 'pick'; S.ui.addCat = 'all';
+  try { history.pushState({ sheet: 1 }, ''); } catch (e) {}
+  render(); focus('#add-search');
+}
+function doCloseSheet() { S.ui.adding = null; S.ui.sel = []; S.ui.step = 'pick'; S.ui.query = ''; render(); }
+let sheetClosing = false;
+function closeSheet() {
+  if (history.state && history.state.sheet) { sheetClosing = true; history.back(); } // popstate finishes the closing
+  else doCloseSheet();
+}
+function sheetBack() {
+  if (S.ui.step === 'qty') { S.ui.step = 'pick'; render(); return; }
+  closeSheet();
+}
+window.addEventListener('popstate', () => {
+  if (!S.ui.adding) { sheetClosing = false; return; }
+  if (sheetClosing) { sheetClosing = false; doCloseSheet(); return; }
+  if (S.ui.step === 'qty') { S.ui.step = 'pick'; try { history.pushState({ sheet: 1 }, ''); } catch (e) {} render(); return; }
+  doCloseSheet();
+});
 
 /* Products tab */
 function productsHTML() {
@@ -1548,10 +1674,6 @@ function closeModal() {
 /* ---------- actions ---------- */
 function findMeal(id) { return S.day.meals.find(m => m.id === id); }
 
-function openAdd(mealId) {
-  S.ui.adding = mealId; S.ui.query = ''; S.ui.sel = []; S.ui.step = 'pick'; S.ui.addCat = 'all';
-  render(); focus('#add-search');
-}
 /* On touch screens the product search waits for a tap, so the keyboard doesn't pop up on its own. */
 const touchUI = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
 function focus(sel) { if (sel === '#add-search' && touchUI()) return; setTimeout(() => { const el = $(sel); if (el) { el.focus(); if (el.select && el.type !== 'search') el.select(); } }, 0); }
@@ -1701,25 +1823,9 @@ async function goDay(date) {
 }
 
 /* ---------- events ---------- */
-/* A click anywhere outside the open add panel closes it (dialogs and the undo toast don't count). */
-function closeAddOnOutside(e) {
-  if (!S.ui.adding || S.modal) return false;
-  const tg = e.target;
-  if (!tg.isConnected || tg.closest('.addpanel, #modal-root, #toast')) return false;
-  S.ui.adding = null;
-  return true;
-}
 document.addEventListener('click', async e => {
-  const closedOutside = closeAddOnOutside(e);
   const t = e.target.closest('[data-act], [data-tab]');
-  if (!t) {
-    if (closedOutside) {
-      const id = e.target.id; render();
-      if (id && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) document.getElementById(id)?.focus();
-    }
-    return;
-  }
-  if (closedOutside && !['openAdd', 'tab', 'prevDay', 'nextDay', 'today', 'addSnack'].includes(t.dataset.act) && !t.dataset.tab) setTimeout(() => { if (!S.ui.adding && $('.addpanel')) render(); }, 0);
+  if (!t) return;
   if (t.matches('.tabs [data-tab]') || t.dataset.act === 'tab') {
     S.tab = t.dataset.tab; S.ui.adding = null;
     if (S.tab === 'week') S.weekData = null;
@@ -1732,17 +1838,12 @@ document.addEventListener('click', async e => {
     case 'nextDay': shiftDay(1); break;
     case 'today': goDay(isoDate(new Date())); break;
     case 'openAdd': openAdd(mid); break;
-    case 'closeAdd': S.ui.adding = null; render(); break;
+    case 'closeAdd': case 'sheetCancel': closeSheet(); break;
+    case 'sheetBack': sheetBack(); break;
+    case 'selStep': selStep(Number(t.dataset.i), Number(t.dataset.d)); break;
     case 'toggleSel': toggleSel(t.dataset.pid, t); break;
     case 'selNext': if (S.ui.sel.length) { S.ui.step = 'qty'; render(); setTimeout(() => { const el = $('#sq-0'); if (el && !touchUI()) { el.focus(); el.select(); } }, 0); } break;
-    case 'selBack': S.ui.step = 'pick'; render(); break;
     case 'selRemove': S.ui.sel.splice(Number(t.dataset.i), 1); if (!S.ui.sel.length) S.ui.step = 'pick'; render(); break;
-    case 'selUnit': {
-      const s = S.ui.sel[Number(t.dataset.i)], p = s && S.products[s.pid]; if (!p || !p.piece) break;
-      const g = selGrams(s); s.unit = t.dataset.unit;
-      if (g) s.qty = String(s.unit === 'pc' ? (Math.round(g / p.piece * 2) / 2 || 1) : Math.round(g));
-      render(); break;
-    }
     case 'selAdd': addSelected(); break;
     case 'toggleMeal': {
       const id = mid;
@@ -1890,6 +1991,8 @@ document.addEventListener('change', e => {
     S.pdraft.activity = Number(t.value); $('#goal-result').innerHTML = goalResultHTML(); $('#applybar').innerHTML = applyBarHTML();
   } else if (t.id === 'pm-only') {
     $('#pm-onlyshop').hidden = !t.checked;
+  } else if (t.dataset.selunit !== undefined) {
+    selUnitChange(Number(t.dataset.selunit), t.value);
   } else if (t.id === 'dm-cat') {
     const w = $('#dm-newcat-wrap'); w.hidden = t.value !== '__new'; if (!w.hidden) $('#dm-newcat').focus();
   } else if (t.id === 'pm-cat') {
@@ -1930,7 +2033,7 @@ document.addEventListener('keydown', e => {
   const t = e.target;
   if (e.key === 'Escape') {
     if (S.modal) { closeModal(); return; }
-    if (S.ui.adding) { S.ui.adding = null; render(); return; }
+    if (S.ui.adding) { sheetBack(); return; }
   }
   if (e.key !== 'Enter') return;
   if (t.id === 'add-search') { e.preventDefault(); const first = filteredProducts(S.ui.query, S.ui.addCat)[0]; if (first) toggleSel(first.id, document.querySelector(`[data-act="toggleSel"][data-pid="${CSS.escape(first.id)}"]`)); }
