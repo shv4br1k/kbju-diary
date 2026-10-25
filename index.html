@@ -350,14 +350,6 @@ body.sheet-open { overflow: hidden; }
 .sh-list .rnm { font-size: 16px; }
 .sh-list .tick { width: 24px; height: 24px; }
 .sh-empty { padding: 20px 4px; }
-.offbtn { align-self: stretch; padding: 12px; border-style: dashed; color: var(--accent); }
-.offlist { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; }
-.offrow { justify-content: flex-start; padding: 10px 12px; border-top: 1px solid var(--line); border-radius: 0; }
-.offrow:first-child { border-top: 0; }
-.offrow .rn { display: flex; flex-direction: column; min-width: 0; }
-.offrow .rnm { overflow-wrap: anywhere; }
-.offrow small { color: var(--muted); font-size: 12px; white-space: normal; }
-.offbrand { color: var(--muted); }
 .sh-foot { border-top: 1px solid var(--line); background: var(--bg); }
 .sh-fin { display: flex; gap: 10px; padding-block: 10px 12px; }
 .btn.big { flex: 1; padding: 14px; font-size: 16px; border-radius: 16px; }
@@ -1398,86 +1390,6 @@ function renderSheet() {
   sheetKey = key;
 }
 
-/* ---------- Open Food Facts: find a product online and save it into the base ---------- */
-const OFF_FIELDS = 'code,product_name,product_name_ru,brands,nutriments,serving_quantity';
-function offNormalize(list) {
-  const r1n = v => Math.round(v * 10) / 10;
-  return list.map(p => {
-    const n = p.nutriments || {};
-    let kcal = num(n['energy-kcal_100g']);
-    if (!(kcal >= 0) && num(n.energy_100g) >= 0) kcal = num(n.energy_100g) / 4.184;
-    const txt = v => v && typeof v === 'object' ? (v.ru || v.main || v.en || Object.values(v)[0] || '') : (v || '');
-    const name = String(txt(p.product_name_ru) || txt(p.product_name) || '').trim();
-    const brand = String(Array.isArray(p.brands) ? p.brands[0] || '' : String(p.brands || '').split(',')[0] || '').trim();
-    const serving = num(p.serving_quantity);
-    return name && kcal >= 0 ? { code: p.code, name, brand, kcal: r1n(kcal), p: r1n(num(n.proteins_100g) || 0), f: r1n(num(n.fat_100g) || 0), c: r1n(num(n.carbohydrates_100g) || 0), piece: serving > 0 ? r1n(serving) : null } : null;
-  }).filter(Boolean);
-}
-/* Several entry points of the same open database are tried in turn; what each one answered is kept for troubleshooting. */
-let offLog = [];
-async function offSearch(q) {
-  const enc = encodeURIComponent(q);
-  const sources = [
-    ['world', `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}`],
-    ['ru', `https://ru.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}`],
-    ['sal', `https://search.openfoodfacts.org/search?q=${enc}&langs=ru,en&page_size=25`],
-    ['v2', `https://world.openfoodfacts.org/api/v2/search?search_terms=${enc}&page_size=25&fields=${OFF_FIELDS}`],
-  ];
-  offLog = [];
-  if (navigator.onLine === false) throw 'offline';
-  let busy = false;
-  for (const [id, u] of sources) {
-    try {
-      const r = await fetch(u);
-      if (r.status === 429 || r.status === 503) { busy = true; offLog.push(id + ':' + r.status); continue; }
-      if (!r.ok) { offLog.push(id + ':' + r.status); continue; }
-      const j = await r.json().catch(() => null);
-      const list = j && (j.hits || j.products);
-      if (!Array.isArray(list)) { offLog.push(id + ':формат'); continue; }
-      const res = offNormalize(list);
-      if (!res.length && list.length) { offLog.push(id + ':пусто'); continue; }
-      return res;
-    } catch (e) { offLog.push(id + ':' + (e && e.name === 'TypeError' ? 'нет доступа' : 'ошибка')); }
-  }
-  throw busy ? 'busy' : 'net';
-}
-function openOff(fromAdd) {
-  S.modal = { kind: 'off', fromAdd: !!fromAdd, q: fromAdd ? S.ui.query : (S.ui.prodQuery || ''), results: null, loading: false, err: '' };
-  renderModal();
-  if (S.modal.q) runOff(); else setTimeout(() => $('#off-q')?.focus(), 0);
-}
-async function runOff() {
-  const m = S.modal; if (!m || m.kind !== 'off') return;
-  const q = m.q.trim(); if (!q) { $('#off-q')?.focus(); return; }
-  m.loading = true; m.err = ''; renderModal();
-  try { m.results = await offSearch(q); }
-  catch (e) { m.results = null; m.err = e === 'busy' ? 'База сейчас перегружена или слишком много запросов подряд. Подождите минуту и попробуйте снова.' : e === 'offline' ? 'Нет интернета. Поиск в базе работает только онлайн.' : 'Не получилось связаться с базой Open Food Facts. Попробуйте позже.'; }
-  if (S.modal === m) { m.loading = false; m.log = offLog.join(' · '); renderModal(); }
-}
-function offModalHTML() {
-  const m = S.modal;
-  const list = m.results && m.results.length ? `<div class="offlist">${m.results.map((x, i) => `<button type="button" class="res offrow" data-act="offPick" data-i="${i}">
-      <span class="rn"><span class="rnm">${esc(x.name)}${x.brand ? ` <span class="offbrand">(${esc(x.brand)})</span>` : ''}</span>
-      <small class="num">${r0(x.kcal)} ккал · Б ${r1(x.p)} · Ж ${r1(x.f)} · У ${r1(x.c)} на 100 г${x.piece ? ` · порция ${r0(x.piece)} г` : ''}</small></span></button>`).join('')}</div>`
-    : m.results ? '<p class="empty">Ничего не нашлось. Попробуйте написать короче или иначе, например без бренда.</p>' : '';
-  return `<div class="overlay" data-act="overlay">
-    <form class="modal" id="off-form" role="dialog" aria-modal="true" aria-labelledby="off-title">
-      <h2 id="off-title">Найти в интернете</h2>
-      <div class="catrow"><input class="field" id="off-q" type="search" value="${esc(m.q)}" placeholder="Например, творог Простоквашино" autocomplete="off"><button class="btn primary" type="submit" ${m.loading ? 'disabled' : ''}>${m.loading ? 'Ищу…' : 'Найти'}</button></div>
-      ${m.err ? `<p class="err">${esc(m.err)}</p>${m.log ? `<p class="fine">Технические подробности: ${esc(m.log)}</p>` : ''}` : ''}
-      ${m.loading ? '<p class="fine">Ищу в базе Open Food Facts…</p>' : list}
-      <p class="fine">Открытая база Open Food Facts, её заполняют обычные пользователи. Выберите продукт, проверьте КБЖУ по упаковке и сохраните его в свою базу.</p>
-      <div class="row-actions"><button class="btn" type="button" data-act="closeModal">Закрыть</button></div>
-    </form></div>`;
-}
-function offPick(i) {
-  const m = S.modal, x = m && m.results && m.results[i]; if (!x) return;
-  const filt = m.fromAdd ? S.ui.addCat : S.ui.catFilter;
-  S.modal = { kind: 'product', editId: null, fromAdd: m.fromAdd, err: '',
-    data: { name: x.brand ? `${x.name} (${x.brand})` : x.name, kcal: x.kcal, p: x.p, f: x.f, c: x.c, piece: x.piece || '', cat: hasCat(filt) ? filt : '' } };
-  renderModal();
-}
-
 /* Products and dishes live in one base; these split them into two tabs. */
 const kindOf = p => p.recipe ? 'dish' : 'prod';
 function kindCounts(list) { const c = { all: list.length }; for (const p of list) { const k = hasCat(p.cat) ? p.cat : UNCAT; c[k] = (c[k] || 0) + 1; } return c; }
@@ -1497,8 +1409,7 @@ function resultsHTML() {
       <i class="tick" aria-hidden="true"></i><span class="rn"><span class="rnm" title="${esc(x.name)}">${esc(x.name)}</span><small class="num">${sub(x)}</small></span></button>`; };
   const emptyText = S.ui.query ? 'Ничего не нашлось.' : kind === 'dish' ? 'Блюд пока нет. Создайте их на вкладке «Продукты» → «Блюда».' : 'Продуктов пока нет. Добавьте их на вкладке «Продукты».';
   const none = !list.length ? `<p class="empty sh-empty">${emptyText}</p>` : '';
-  const online = kind === 'prod' && S.ui.query.trim() ? `<button class="btn offbtn" data-act="offOpen" data-fromadd="1">Искать «${esc(S.ui.query.trim())}» в интернете</button>` : '';
-  return `${kindSegHTML(kind, 'addKind', S.ui.query)}<div class="sh-chips">${chipsHTML(S.ui.addCat, 'addCat', counts)}</div>${list.length ? `<div class="sh-list">${list.map(row).join('')}</div>` : none}${online}`;
+  return `${kindSegHTML(kind, 'addKind', S.ui.query)}<div class="sh-chips">${chipsHTML(S.ui.addCat, 'addCat', counts)}</div>${list.length ? `<div class="sh-list">${list.map(row).join('')}</div>` : none}`;
 }
 function addFootHTML() {
   const n = S.ui.sel.length;
@@ -1625,7 +1536,7 @@ function productsHTML() {
   return `<div class="toolbar">
       <input class="field" id="prod-search" type="search" placeholder="Поиск по базе" value="${esc(S.ui.prodQuery)}" autocomplete="off">
       <button class="btn" data-act="manageCats">Категории</button>
-      ${S.ui.prodKind === 'dish' ? '<button class="btn primary" data-act="newDish">+ Блюдо</button>' : '<button class="btn" data-act="offOpen">Из интернета</button><button class="btn primary" data-act="newProduct">+ Продукт</button>'}
+      ${S.ui.prodKind === 'dish' ? '<button class="btn primary" data-act="newDish">+ Блюдо</button>' : '<button class="btn primary" data-act="newProduct">+ Продукт</button>'}
     </div>
     <div id="prod-kind">${kindSegHTML(S.ui.prodKind || 'prod', 'prodKind', S.ui.prodQuery)}</div>
     <div id="prod-chips">${prodChipsHTML()}</div>
@@ -1724,7 +1635,6 @@ function renderModal() {
   if (S.modal.kind === 'cats') { root.innerHTML = catsModalHTML(); return; }
   if (S.modal.kind === 'shops') { root.innerHTML = shopsModalHTML(); return; }
   if (S.modal.kind === 'dish') { root.innerHTML = dishModalHTML(); return; }
-  if (S.modal.kind === 'off') { root.innerHTML = offModalHTML(); return; }
   const m = S.modal, p = m.data;
   const catSel = p.cat === '__new' ? '__new' : hasCat(p.cat) ? p.cat : '';
   root.innerHTML = `<div class="overlay" data-act="overlay">
@@ -1983,8 +1893,6 @@ document.addEventListener('click', async e => {
     case 'newProduct': openProductModal(null, t.dataset.fromadd === '1'); break;
     case 'editProduct': if (S.products[t.dataset.pid] && S.products[t.dataset.pid].recipe) openDishModal(t.dataset.pid, false); else openProductModal(t.dataset.pid, false); break;
     case 'newDish': openDishModal(null, t.dataset.fromadd === '1'); break;
-    case 'offOpen': openOff(t.dataset.fromadd === '1'); break;
-    case 'offPick': offPick(Number(t.dataset.i)); break;
     case 'dishAdd': dishAdd(t.dataset.pid); break;
     case 'dishDel': syncDishFields(); S.modal.data.items.splice(Number(t.dataset.i), 1); rerenderDish(); break;
     case 'delProduct': S.ui.confirmProd = t.dataset.pid; $('#plist').innerHTML = plistHTML(); break;
@@ -2069,8 +1977,6 @@ document.addEventListener('input', e => {
     $('#add-results').innerHTML = resultsHTML();
   } else if (t.dataset.selq !== undefined) {
     selQtyInput(t);
-  } else if (t.id === 'off-q' && S.modal) {
-    S.modal.q = t.value;
   } else if (t.id === 'dm-search') {
     S.modal.q = t.value; $('#dm-results').innerHTML = dishResultsHTML();
   } else if (t.dataset.dg !== undefined && S.modal) {
@@ -2161,7 +2067,6 @@ document.addEventListener('keydown', e => {
 document.addEventListener('submit', e => {
   if (e.target.id === 'prod-form') { e.preventDefault(); saveProductForm(); }
   else if (e.target.id === 'dish-form') { e.preventDefault(); saveDish(); }
-  else if (e.target.id === 'off-form') { e.preventDefault(); S.modal.q = $('#off-q').value; runOff(); }
   else if (e.target.id === 'cats-form') {
     e.preventDefault();
     const inp = $('#cat-new'); if (!inp.value.trim()) { inp.focus(); return; }
