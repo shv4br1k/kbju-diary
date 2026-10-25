@@ -1602,13 +1602,15 @@ function profileHTML() {
       </div>` : ''}
     </section>
     <section class="card">
-      <h2>Резервная копия</h2>
+      <h2>Резервная копия и экспорт</h2>
       <p class="fine">Файл со всеми продуктами, днями и параметрами. Пригодится для переноса или на всякий случай.</p>
       <div class="row-actions">
         <button class="btn" data-act="export">Сохранить копию</button>
         <label class="btn" for="import-file">Загрузить из файла</label>
         <input type="file" id="import-file" accept=".json,application/json" hidden>
       </div>
+      <p class="fine">Таблица продуктов и блюд с КБЖУ, весом штуки и ингредиентами. Открывается в Excel и Google Таблицах. Загрузить её обратно нельзя, для этого используйте копию выше.</p>
+      <div class="row-actions"><button class="btn" data-act="exportCsv">Скачать продукты (CSV)</button></div>
       ${S.ui.importData ? `<div class="confirm"><span>В файле ${S.ui.importData.products.length} продуктов и ${Object.keys(S.ui.importData.days).length} дней. Совпадающие продукты и дни будут заменены, параметры тоже.</span><button class="btn sm primary" data-act="importYes">Загрузить</button><button class="btn sm" data-act="importNo">Отмена</button></div>` : ''}
       ${S.ui.exportText ? `<p class="fine">Не получилось скачать файл. Скопируйте текст и сохраните его в файл .json:</p><textarea class="field" id="export-text" readonly>${esc(S.ui.exportText)}</textarea><div class="row-actions"><button class="btn sm" data-act="copyExport">Скопировать</button></div>` : ''}
       ${S.ui.msg ? `<p class="fine">${esc(S.ui.msg)}</p>` : ''}
@@ -1743,6 +1745,29 @@ async function saveProductForm() {
   render();
   await run(S.store.saveProduct(prod));
   refreshDishes(prod.id);
+}
+
+/* Products and dishes as a spreadsheet: semicolons and decimal commas, as Russian Excel expects. */
+function downloadText(filename, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function exportCsv() {
+  const cell = v => { const t = v == null ? '' : typeof v === 'number' ? String(Math.round(v * 10) / 10).replace('.', ',') : String(v); return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const catName = id => (S.categories.find(c => c.id === id) || {}).name || '';
+  const shopName = id => (S.prices.shops.find(x => x.id === id) || {}).name || '';
+  const head = ['Название', 'Тип', 'Категория', 'Ккал на 100 г', 'Белки на 100 г', 'Жиры на 100 г', 'Углеводы на 100 г', 'Вес 1 шт или порции, г', 'Ккал в 1 шт или порции', 'Порций в блюде', 'Ингредиенты', 'Только в магазине', 'Лучшая цена за 100 г, ₽'];
+  const rows = Object.values(S.products).sort((a, b) => (a.recipe ? 1 : 0) - (b.recipe ? 1 : 0) || alpha(a, b)).map(p => {
+    const c = costPer100(p.id);
+    return [p.name, p.recipe ? 'Блюдо' : 'Продукт', catName(p.cat), p.kcal, p.p, p.f, p.c, p.piece || '', p.piece ? p.kcal * p.piece / 100 : '',
+      p.recipe ? num(dishPortions(p)) : '', p.recipe ? p.recipe.items.map(it => `${(S.products[it.pid] || it).name} — ${nf1.format(num(it.g))} г`).join('; ') : '',
+      shopName(p.onlyShop), c != null ? c : ''];
+  });
+  const text = '\ufeff' + [head, ...rows].map(r => r.map(cell).join(';')).join('\r\n');
+  try { downloadText(`kbju-products-${isoDate(new Date())}.csv`, text, 'text/csv;charset=utf-8'); S.ui.msg = `Таблица сохранена в загрузки: ${rows.length} позиций.`; }
+  catch (e) { S.ui.msg = 'Не получилось скачать файл.'; }
+  render();
 }
 
 async function exportData() {
@@ -1948,6 +1973,7 @@ document.addEventListener('click', async e => {
     case 'applyProf': S.profile = clone(S.pdraft); touchProfile(); render(); break;
     case 'cancelProf': S.pdraft = clone(S.profile); render(); break;
     case 'export': exportData(); break;
+    case 'exportCsv': exportCsv(); break;
     case 'importYes': applyImport(); break;
     case 'importNo': S.ui.importData = null; render(); break;
     case 'copyExport': {
