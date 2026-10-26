@@ -1,0 +1,15 @@
+{
+  "appId": "com.shv4br1k.kbju",
+  "appName": "Дневник КБЖУ",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#15110E"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#15110E"
+    }
+  }
+}

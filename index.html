@@ -1807,12 +1807,22 @@ async function saveProductForm() {
 }
 
 /* Products and dishes as a spreadsheet: semicolons and decimal commas, as Russian Excel expects. */
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+async function saveFile(filename, text, type) {
+  if (NATIVE) {
+    const { Filesystem, Share } = window.Capacitor.Plugins;
+    const r = await Filesystem.writeFile({ path: filename, data: text, directory: 'CACHE', encoding: 'utf8' });
+    try { await Share.share({ title: filename, url: r.uri, dialogTitle: 'Сохранить или отправить' }); } catch (e) { /* closed without choosing */ }
+    return 'shared';
+  }
+  downloadText(filename, text, type); return 'downloaded';
+}
 function downloadText(filename, text, type) {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
-function exportCsv() {
+async function exportCsv() {
   const cell = v => { const t = v == null ? '' : typeof v === 'number' ? String(Math.round(v * 10) / 10).replace('.', ',') : String(v); return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   const catName = id => (S.categories.find(c => c.id === id) || {}).name || '';
   const shopName = id => (S.prices.shops.find(x => x.id === id) || {}).name || '';
@@ -1824,8 +1834,8 @@ function exportCsv() {
       shopName(p.onlyShop), c != null ? c : ''];
   });
   const text = '\ufeff' + [head, ...rows].map(r => r.map(cell).join(';')).join('\r\n');
-  try { downloadText(`kbju-products-${isoDate(new Date())}.csv`, text, 'text/csv;charset=utf-8'); S.ui.msg = `Таблица сохранена в загрузки: ${rows.length} позиций.`; }
-  catch (e) { S.ui.msg = 'Не получилось скачать файл.'; }
+  try { const how = await saveFile(`kbju-products-${isoDate(new Date())}.csv`, text, 'text/csv;charset=utf-8'); S.ui.msg = how === 'shared' ? `Таблица готова: ${rows.length} позиций.` : `Таблица сохранена в загрузки: ${rows.length} позиций.`; }
+  catch (e) { S.ui.msg = 'Не получилось сохранить файл.'; }
   render();
 }
 
@@ -1837,8 +1847,8 @@ async function exportData() {
   const text = JSON.stringify(data, null, 1);
   const filename = `kbju-backup-${S.date}.json`;
   try {
-    downloadText(filename, text, 'application/json');
-    S.ui.msg = 'Копия сохранена в загрузки.'; render();
+    const how = await saveFile(filename, text, 'application/json');
+    S.ui.msg = how === 'shared' ? 'Копия готова. Сохраните её в «Файлы», на Диск или отправьте себе.' : 'Копия сохранена в загрузки.'; render();
   } catch (e) { S.ui.exportText = text; render(); }
 }
 
