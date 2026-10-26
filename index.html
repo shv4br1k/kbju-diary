@@ -371,6 +371,26 @@ body.sheet-open { overflow: hidden; }
 .mbar i { display: block; height: 100%; }
 .mbar .dp { background: var(--prot); } .mbar .df { background: var(--fat); } .mbar .dc { background: var(--carb); }
 .mbar-l { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; }
+.wstats, .wexp { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.wstats span, .wexp span { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); min-width: 0; }
+.wstats b { font-family: var(--font-display); font-weight: 600; font-size: 24px; color: var(--ink); }
+.wexp { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
+.wexp b { font-size: 17px; color: var(--ink); font-weight: 600; }
+.wstats small, .wexp small { font-size: 12px; }
+.wchart2 { width: 100%; max-width: 560px; height: auto; display: block; }
+.wchart2 .wg { stroke: var(--line); stroke-width: 1; }
+.wchart2 .wt { fill: var(--muted); font-size: 21px; font-family: var(--font-body); }
+.wchart2 .wl { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.wchart2 .wp { fill: var(--muted); stroke: var(--surface); stroke-width: 2; }
+.wleg { display: flex; gap: 16px; font-size: 12px; color: var(--muted); }
+.wleg span { display: inline-flex; align-items: center; gap: 6px; }
+.wleg-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.wleg-line { width: 18px; height: 3px; border-radius: 2px; background: var(--accent); }
+.wform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+@media (max-width: 420px) { .wform { grid-template-columns: 1fr 1fr; } .wform .btn { grid-column: 1 / -1; } }
+.wlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.wlist li { display: grid; grid-template-columns: minmax(0, 1fr) auto 28px; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.wlist li:first-child { border-top: 0; }
 .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; }
 .confirm span { flex: 1 1 160px; }
 
@@ -538,6 +558,7 @@ const S = {
   categories: [],
   pdraft: null,
   prices: { shops: [], prices: {}, showCost: false },
+  weights: {}, wExpect: null,
   week: null, weekData: null, weekLoading: null,
   pxDraft: null,
   pxOnly: {},
@@ -562,6 +583,8 @@ function makeLocalStore() {
     async saveProfile(p) { put('profile', p); },
     async getCats() { return get('cats'); },
     async getPrices() { return get('prices'); },
+    async getWeights() { return get('weights') || {}; },
+    async saveWeights(w) { put('weights', w); },
     async savePrices(p) { put('prices', p); },
     async saveCats(c) { put('cats', c); },
     async getProducts() { return get('products') || {}; },
@@ -645,7 +668,7 @@ function render() {
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
   const gear = $('#gearbtn'); if (gear) gear.setAttribute('aria-pressed', String(S.tab === 'profile'));
   if (S.tab !== 'diary') S.ui.adding = null;
-  view().innerHTML = (S.tab === 'products' ? productsHTML() : S.tab === 'prices' ? pricesHTML() : S.tab === 'week' ? weekHTML() : S.tab === 'profile' ? profileHTML() : diaryHTML());
+  view().innerHTML = (S.tab === 'products' ? productsHTML() : S.tab === 'prices' ? pricesHTML() : S.tab === 'week' ? weekHTML() + weightHTML() : S.tab === 'profile' ? profileHTML() : diaryHTML());
   renderSheet();
   renderModal();
 }
@@ -1002,6 +1025,89 @@ const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 function mondayOf(iso) { const d = parseDate(iso); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoDate(d); }
 function addDays(iso, n) { const d = parseDate(iso); d.setDate(d.getDate() + n); return isoDate(d); }
 
+/* ---------- weight log: weekly weigh-ins, a smoothed trend and the diary's estimate ---------- */
+const wEntries = () => Object.entries(S.weights).filter(([, v]) => num(v) > 0).sort((a, b) => a[0].localeCompare(b[0])).map(([date, kg]) => ({ date, kg: num(kg) }));
+/* Trend: exponential smoothing that follows the scale but ignores day-to-day water swings. */
+function wTrend(list) { let t = null; return list.map(e => (t = t == null ? e.kg : t + 0.4 * (e.kg - t))); }
+const kgf = v => nf1.format(Math.round(v * 10) / 10);
+const signedKg = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + kgf(Math.abs(v));
+
+async function calcExpected() {
+  const list = wEntries(); if (!list.length) { S.wExpect = null; return; }
+  const auto = computeGoal({ ...S.profile, manual: false }); if (!auto) { S.wExpect = null; return; }
+  const from = list[0].date; let days = {};
+  try { await flushDay(); days = await S.store.allDays(); } catch (e) {}
+  let kcal = 0, n = 0;
+  for (const [date, d] of Object.entries(days)) {
+    if (date < from || date > isoDate(new Date()) || !d || !Array.isArray(d.meals)) continue;
+    const items = d.meals.flatMap(m => m.items); if (!items.length) continue;
+    kcal += auto.tdee - sum(items).kcal; n++;
+  }
+  S.wExpect = { from, n, kg: kcal / 7700 };
+  if (S.tab === 'week' && $('#wexpect')) $('#wexpect').innerHTML = wExpectHTML();
+}
+function wExpectHTML() {
+  const e = S.wExpect, list = wEntries();
+  if (!e || !e.n || list.length < 2) return '';
+  const tr = wTrend(list), real = tr[tr.length - 1] - tr[0];
+  return `<div class="wexp num"><span>По дневнику с ${esc(fmtDay(e.from))}<b>${signedKg(-e.kg)} кг</b><small>${e.n} ${e.n === 1 ? 'день' : e.n < 5 ? 'дня' : 'дней'} с записями</small></span>
+    <span>По весам (тренд)<b>${signedKg(real)} кг</b><small>${list.length} взвешиваний</small></span></div>`;
+}
+
+function weightChartSVG(list) {
+  if (list.length < 2) return '';
+  const tr = wTrend(list), W = 560, H = 250, L = 58, R = 16, T = 18, B = 40;
+  const vals = [...list.map(e => e.kg), ...tr];
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi - lo < 2) { const m = (hi + lo) / 2; lo = m - 1; hi = m + 1; }
+  lo = Math.floor(lo * 2) / 2 - 0.5; hi = Math.ceil(hi * 2) / 2 + 0.5;
+  const t0 = parseDate(list[0].date).getTime(), t1 = parseDate(list[list.length - 1].date).getTime() || t0 + 1;
+  const x = d => L + (W - L - R) * ((parseDate(d).getTime() - t0) / Math.max(1, t1 - t0));
+  const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const step = (hi - lo) / 4, grid = [0, 1, 2, 3, 4].map(i => lo + step * i);
+  const gl = grid.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="wg"/><text x="${L - 10}" y="${(y(v) + 7).toFixed(1)}" class="wt" text-anchor="end">${kgf(v)}</text>`).join('');
+  const path = tr.map((v, i) => `${i ? 'L' : 'M'}${x(list[i].date).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const dots = list.map(e => `<circle cx="${x(e.date).toFixed(1)}" cy="${y(e.kg).toFixed(1)}" r="6" class="wp"><title>${fmtDay(e.date)}: ${kgf(e.kg)} кг</title></circle>`).join('');
+  const lx = list.length > 1 ? `<text x="${L}" y="${H - 10}" class="wt">${fmtDay(list[0].date)}</text><text x="${W - R}" y="${H - 10}" class="wt" text-anchor="end">${fmtDay(list[list.length - 1].date)}</text>` : '';
+  return `<svg class="wchart2" viewBox="0 0 ${W} ${H}" role="img" aria-label="График веса">${gl}<path d="${path}" class="wl"/>${dots}${lx}</svg>
+    <div class="wleg"><span><i class="wleg-dot"></i>взвешивания</span><span><i class="wleg-line"></i>тренд</span></div>`;
+}
+
+function weightHTML() {
+  const list = wEntries(), tr = wTrend(list), last = list[list.length - 1];
+  if (!S.ui.wDate) S.ui.wDate = isoDate(new Date());
+  const head = last ? `<div class="wstats num">
+      <span>Сейчас<b>${kgf(tr[tr.length - 1])} кг</b><small>тренд · последнее ${kgf(last.kg)} кг ${esc(fmtDay(last.date))}</small></span>
+      ${list.length > 1 ? `<span>С начала<b>${signedKg(tr[tr.length - 1] - tr[0])} кг</b><small>с ${esc(fmtDay(list[0].date))}</small></span>` : ''}
+    </div>` : '<p class="fine">Записывайте вес раз в неделю, лучше в один и тот же день: утром, натощак, после туалета. Так цифры честно сравниваются между собой.</p>';
+  const rows = list.slice(-8).reverse().map(e => `<li><span>${esc(fmtDay(e.date))}</span><b class="num">${kgf(e.kg)} кг</b><button class="del" data-act="wDel" data-date="${e.date}" aria-label="Удалить запись ${esc(fmtDay(e.date))}">×</button></li>`).join('');
+  return `<section class="card wcard" id="wcard">
+    <h2>Вес</h2>
+    ${head}
+    ${weightChartSVG(list)}
+    <div id="wexpect">${wExpectHTML()}</div>
+    <form class="wform" id="w-form">
+      <label class="f"><span>Дата</span><input class="field" id="w-date" type="date" value="${esc(S.ui.wDate)}" max="${isoDate(new Date())}"></label>
+      <label class="f"><span>Вес, кг</span><input class="field num" id="w-kg" type="text" inputmode="decimal" autocomplete="off" value="${esc(S.ui.wVal || '')}" placeholder="${last ? kgf(last.kg) : 'например, 85,4'}"></label>
+      <button class="btn primary" type="submit">Записать</button>
+    </form>
+    ${S.ui.wErr ? `<p class="err">${esc(S.ui.wErr)}</p>` : ''}
+    ${S.ui.wSuggest ? `<div class="applybar"><span>Обновить вес в параметрах на ${kgf(S.ui.wSuggest)} кг? Норма калорий пересчитается.</span><button class="btn sm" data-act="wSugNo">Не надо</button><button class="btn primary" data-act="wSugYes">Обновить</button></div>` : ''}
+    ${rows ? `<ul class="wlist">${rows}</ul>` : ''}
+  </section>`;
+}
+function saveWeights() { return run(S.store.saveWeights(clone(S.weights))); }
+function wSubmit() {
+  const date = $('#w-date').value || isoDate(new Date()), kg = num($('#w-kg').value);
+  S.ui.wDate = date;
+  if (!(kg >= 25 && kg <= 400)) { S.ui.wErr = 'Введите вес в килограммах, например 85,4.'; S.ui.wVal = $('#w-kg').value; render(); return; }
+  S.weights[date] = Math.round(kg * 10) / 10; S.ui.wErr = ''; S.ui.wVal = '';
+  saveWeights();
+  const list = wEntries(), newest = list[list.length - 1];
+  S.ui.wSuggest = newest && newest.date === date && Math.abs(num(S.profile.weight) - newest.kg) >= 0.05 ? newest.kg : null;
+  render(); calcExpected();
+}
+
 async function loadWeek() {
   const mon = S.week;
   if (S.weekLoading === mon) return;
@@ -1016,6 +1122,7 @@ async function loadWeek() {
     return { date, n: items.length, ...sum(items) };
   }) };
   if (S.tab === 'week') render();
+  calcExpected();
 }
 
 function weekLabel(mon) {
@@ -1598,7 +1705,7 @@ function profileHTML() {
     </section>
     <section class="card">
       <h2>Резервная копия и экспорт</h2>
-      <p class="fine">Файл со всеми продуктами, днями и параметрами. Пригодится для переноса или на всякий случай.</p>
+      <p class="fine">Файл со всеми продуктами, днями, ценами, весом и параметрами. Пригодится для переноса или на всякий случай.</p>
       <div class="row-actions">
         <button class="btn" data-act="export">Сохранить копию</button>
         <label class="btn" for="import-file">Загрузить из файла</label>
@@ -1769,7 +1876,7 @@ async function exportData() {
   S.ui.msg = '';
   let days = {};
   try { await flushDay(); days = await S.store.allDays(); } catch (e) { S.ui.msg = 'Не получилось собрать дни. Попробуйте ещё раз.'; render(); return; }
-  const data = { app: 'kbju-diary', version: 2, exportedAt: new Date().toISOString(), profile: S.profile, categories: S.categories, prices: S.prices, products: Object.values(S.products), days };
+  const data = { app: 'kbju-diary', version: 2, exportedAt: new Date().toISOString(), profile: S.profile, categories: S.categories, prices: S.prices, weights: S.weights, products: Object.values(S.products), days };
   const text = JSON.stringify(data, null, 1);
   const filename = `kbju-backup-${S.date}.json`;
   if (S.downloads) {
@@ -1790,7 +1897,7 @@ function readImport(file) {
     try {
       const d = JSON.parse(reader.result);
       if (!d || !Array.isArray(d.products) || typeof d.days !== 'object') throw new Error();
-      S.ui.importData = { profile: d.profile || null, prices: d.prices && Array.isArray(d.prices.shops) ? d.prices : null, categories: Array.isArray(d.categories) ? d.categories.filter(c => c && c.id && c.name) : [], products: d.products.filter(p => p && p.id && p.name), days: d.days || {} };
+      S.ui.importData = { weights: d.weights && typeof d.weights === 'object' ? d.weights : null, profile: d.profile || null, prices: d.prices && Array.isArray(d.prices.shops) ? d.prices : null, categories: Array.isArray(d.categories) ? d.categories.filter(c => c && c.id && c.name) : [], products: d.products.filter(p => p && p.id && p.name), days: d.days || {} };
       S.ui.msg = '';
     } catch (e) { S.ui.importData = null; S.ui.msg = 'Этот файл не похож на копию дневника.'; }
     render();
@@ -1811,6 +1918,7 @@ async function applyImport() {
       S.categories = Object.values(byId);
       await S.store.saveCats(clone(S.categories));
     }
+    if (d.weights) { for (const [k, v] of Object.entries(d.weights)) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && num(v) > 0) S.weights[k] = num(v); await S.store.saveWeights(clone(S.weights)); }
     if (d.prices) {
       const shops = Object.fromEntries(S.prices.shops.map(x => [x.id, x]));
       d.prices.shops.forEach(x => { if (x && x.id && x.name) shops[String(x.id)] = { id: String(x.id), name: String(x.name) }; });
@@ -1869,6 +1977,9 @@ document.addEventListener('click', async e => {
     case 'install': if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; $('#installbtn').hidden = true; }); } break;
     case 'prevWeek': S.week = addDays(S.week, -7); render(); break;
     case 'nextWeek': S.week = addDays(S.week, 7); render(); break;
+    case 'wDel': delete S.weights[t.dataset.date]; S.ui.wSuggest = null; saveWeights(); render(); calcExpected(); break;
+    case 'wSugYes': S.profile = { ...S.profile, weight: String(S.ui.wSuggest).replace('.', ',') }; S.pdraft = null; S.ui.wSuggest = null; touchProfile(); S.weekData = null; render(); break;
+    case 'wSugNo': S.ui.wSuggest = null; render(); break;
     case 'thisWeek': S.week = mondayOf(isoDate(new Date())); render(); break;
     case 'openDay': S.tab = 'diary'; try { localStorage.setItem('kbju.tab', 'diary'); } catch (err) {} goDay(t.dataset.date); window.scrollTo(0, 0); break;
     case 'delItem': { const m = findMeal(mid); if (m) { m.items = m.items.filter(i => i.id !== t.dataset.item); touchDay(); render(); } break; }
@@ -2064,6 +2175,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('submit', e => {
   if (e.target.id === 'prod-form') { e.preventDefault(); saveProductForm(); }
+  else if (e.target.id === 'w-form') { e.preventDefault(); wSubmit(); }
   else if (e.target.id === 'dish-form') { e.preventDefault(); saveDish(); }
   else if (e.target.id === 'cats-form') {
     e.preventDefault();
@@ -2176,6 +2288,7 @@ async function init() {
   let px = null;
   try { px = await store.getPrices(); } catch (e) {}
   S.prices = { shops: [], prices: {}, showCost: false, ...(px || {}) };
+  try { S.weights = await store.getWeights() || {}; } catch (e) { S.weights = {}; }
 
   try {
     store.subscribeProducts(o => {
