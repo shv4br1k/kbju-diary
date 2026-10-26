@@ -12,6 +12,232 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<script>
+/* Seasonal look. Runs before the page paints, so there is no flash of the wrong colors.
+   Decorations live in #decor, a fixed layer behind the cards; they show in the gaps and margins. */
+window.KBJU_THEME = (function () {
+  const LIST = [
+    ['auto', 'По сезону', ''],
+    ['default', 'Обычное', ''],
+    ['autumn', 'Осень', '🍂'],
+    ['halloween', 'Хэллоуин', '🎃'],
+    ['winter', 'Зима', '❄️'],
+    ['newyear', 'Новый год', '🎄'],
+  ];
+  function season(d) {
+    const m = d.getMonth() + 1, day = d.getDate();
+    if (m === 12 || m === 1) return 'newyear';
+    if (m === 2 || (m === 11 && day >= 25)) return 'winter';
+    if (m === 10 && day >= 24) return 'halloween';
+    if (m >= 9 && m <= 11) return 'autumn';
+    return 'default';
+  }
+  function choice() { try { return JSON.parse(localStorage.getItem('kbju.theme')) || 'auto'; } catch (e) { return 'auto'; } }
+
+  /* Repeatable pseudo-random numbers, so the decorations sit in the same places every time. */
+  function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+  const svg = (vb, body, w, style, extra) => `<svg class="dk" viewBox="${vb}" width="${w}" style="${style}" ${extra || ''} aria-hidden="true">${body}</svg>`;
+
+  const MAPLE = 'M20 2 L23 11 L30 7 L28 16 L37 15 L31 22 L35 26 L26 26 L27 33 L20 28 L13 33 L14 26 L5 26 L9 22 L3 15 L12 16 L10 7 L17 11 Z';
+  const OVAL = 'M20 3 C31 11 33 24 20 37 C7 24 9 11 20 3 Z';
+  const leaf = (c, maple) => maple
+    ? `<path d="${MAPLE}" fill="${c}"/><path d="M20 28 L20 39 M20 28 L20 9 M20 22 L12 17 M20 22 L28 17" stroke="rgba(0,0,0,.28)" stroke-width="1.2" fill="none"/>`
+    : `<path d="${OVAL}" fill="${c}"/><path d="M20 6 L20 39 M20 16 L14 12 M20 16 L26 12 M20 24 L13 19 M20 24 L27 19" stroke="rgba(0,0,0,.28)" stroke-width="1.2" fill="none"/>`;
+
+  const pumpkin = face => `<ellipse cx="12" cy="22" rx="10" ry="12" fill="#C9601A"/><ellipse cx="28" cy="22" rx="10" ry="12" fill="#C9601A"/><ellipse cx="20" cy="22" rx="10" ry="13.5" fill="#F2862E"/><path d="M20 9 Q20 3 25 1.5" stroke="#5B7F2E" stroke-width="3" fill="none" stroke-linecap="round"/>`
+    + (face ? `<path d="M12 19 L15.5 14 L19 19 Z M21 19 L24.5 14 L28 19 Z" fill="#FFD27A"/><path d="M10.5 25 Q20 33 29.5 25 L27 26.5 L25 25 L22.5 27 L20 25.5 L17.5 27 L15 25 L13 26.5 Z" fill="#FFD27A"/>` : '');
+  const BAT = '<path d="M0 8 Q5 0 10 6 Q12 3 14 6 L15 3 L16 6 Q18 3 20 6 Q25 0 30 8 Q26 6 22 10 Q18 8 15 12 Q12 8 8 10 Q4 6 0 8 Z" fill="#6E4A8E"/>';
+  const SPIDER = '<g stroke="#8A7A96" stroke-width="1.6" fill="none" stroke-linecap="round"><path d="M9 9 L2 4 M9 11 L1 11 M9 13 L2 18 M10 15 L5 21 M15 9 L22 4 M15 11 L23 11 M15 13 L22 18 M14 15 L19 21"/></g><ellipse cx="12" cy="12" rx="5" ry="6" fill="#6E5E7A"/><circle cx="12" cy="6" r="3.2" fill="#6E5E7A"/><circle cx="10.8" cy="5.6" r=".8" fill="#F2862E"/><circle cx="13.2" cy="5.6" r=".8" fill="#F2862E"/>';
+  function web() {
+    let b = '';
+    const ang = [0, 18, 36, 54, 72, 90].map(a => a * Math.PI / 180);
+    ang.forEach(a => { b += `<line x1="0" y1="0" x2="${(Math.cos(a) * 110).toFixed(1)}" y2="${(Math.sin(a) * 110).toFixed(1)}"/>`; });
+    [22, 42, 64, 88].forEach(r => {
+      let d = '';
+      for (let i = 0; i < ang.length - 1; i++) {
+        const a1 = ang[i], a2 = ang[i + 1], am = (a1 + a2) / 2, rm = r * 0.86;
+        const x1 = Math.cos(a1) * r, y1 = Math.sin(a1) * r, x2 = Math.cos(a2) * r, y2 = Math.sin(a2) * r;
+        d += `${i ? '' : `M${x1.toFixed(1)} ${y1.toFixed(1)} `}Q${(Math.cos(am) * rm).toFixed(1)} ${(Math.sin(am) * rm).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)} `;
+      }
+      b += `<path d="${d}"/>`;
+    });
+    return `<g fill="none" stroke="#D9CFE3" stroke-width="1">${b}</g>`;
+  }
+  function flake() {
+    let b = '';
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3;
+      const pt = (r, da) => `${(Math.cos(a + da) * r).toFixed(2)} ${(Math.sin(a + da) * r).toFixed(2)}`;
+      b += `<path d="M0 0 L${pt(10, 0)} M${pt(6, 0)} L${pt(8.6, .45)} M${pt(6, 0)} L${pt(8.6, -.45)}"/>`;
+    }
+    return `<g fill="none" stroke="#EAF4FB" stroke-width="1.4" stroke-linecap="round">${b}</g>`;
+  }
+
+  /* New Year garland: each bulb is drawn twice, an unlit glass bulb and a lit one with a glow on top.
+     The lit bulbs sit in three groups that fade in and out one after another, slowly, like a real garland. */
+  const BULB = [
+    ['#5A1216', '#FF5A55', '#FF3B3B'],
+    ['#0E3F24', '#4BE38F', '#29D17A'],
+    ['#5E4A14', '#FFD86E', '#FFC23D'],
+    ['#5A1216', '#FF5A55', '#FF3B3B'],
+    ['#0E3F24', '#4BE38F', '#29D17A'],
+    ['#14305E', '#7FB4FF', '#5C9BFF'],
+  ];
+  const q = (p0, p1, p2, t) => (1 - t) * (1 - t) * p0 + 2 * (1 - t) * t * p1 + t * t * p2;
+  const qd = (p0, p1, p2, t) => 2 * (1 - t) * (p1 - p0) + 2 * t * (p2 - p1);
+  function garlandSVG(swags, size, cls, w, h) {
+    let wire = '', base = '', lit = ['', '', ''], n = 0;
+    const s = size;
+    swags.forEach(([x1, y1, x2, y2, sag, count]) => {
+      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2 + sag * 2;
+      wire += `M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)} `;
+      for (let i = 0; i < count; i++) {
+        const t = (i + .5) / count, x = q(x1, cx, x2, t), y = q(y1, cy, y2, t);
+        const ang = Math.atan2(qd(y1, cy, y2, t), qd(x1, cx, x2, t)) * 180 / Math.PI * .5;
+        const [dark, bright, glow] = BULB[n % BULB.length];
+        const g = `transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(0)})"`;
+        base += `<g ${g}><rect x="${-s * .32}" y="0" width="${s * .64}" height="${s * .55}" rx="${s * .12}" fill="#7C7258"/><ellipse cx="0" cy="${s * 1.25}" rx="${s * .62}" ry="${s * .9}" fill="${dark}"/></g>`;
+        lit[n % 3] += `<g ${g}><circle cx="0" cy="${s * 1.25}" r="${s * 2.6}" fill="url(#gl${n % BULB.length})"/><ellipse cx="0" cy="${s * 1.25}" rx="${s * .62}" ry="${s * .9}" fill="${bright}"/><ellipse cx="${-s * .2}" cy="${s * .95}" rx="${s * .16}" ry="${s * .3}" fill="#fff" opacity=".7"/></g>`;
+        n++;
+      }
+    });
+    const defs = BULB.map((b, i) => `<radialGradient id="gl${i}"><stop offset="0" stop-color="${b[2]}" stop-opacity=".55"/><stop offset=".45" stop-color="${b[2]}" stop-opacity=".18"/><stop offset="1" stop-color="${b[2]}" stop-opacity="0"/></radialGradient>`).join('');
+    return `<svg class="${cls}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><defs>${defs}</defs>`
+      + `<path d="${wire}" fill="none" stroke="#24452F" stroke-width="${Math.max(1.4, s * .28)}"/><path d="${wire}" fill="none" stroke="#3E6B4C" stroke-width="${Math.max(.6, s * .1)}" stroke-dasharray="${s * .5} ${s * .4}"/>`
+      + base + lit.map((l, i) => `<g class="lit ph${i}">${l}</g>`).join('') + '</svg>';
+  }
+  function headGarland() {
+    const W = 2600, swags = [];
+    for (let x = 0; x < W; x += 92) swags.push([x, 3, x + 92, 3, 7, 4]);
+    return garlandSVG(swags, 7, 'hg', W, 34);
+  }
+  function bgGarland() {
+    const W = Math.max(320, window.innerWidth), H = Math.max(480, window.innerHeight), swags = [];
+    const r = rng(4242), rows = Math.max(3, Math.round(H / 230));
+    for (let k = 0; k < rows; k++) {
+      const y = 240 + k * (H - 200) / rows, parts = Math.max(1, Math.round(W / 460));
+      const seg = (W + 60) / parts;
+      for (let i = 0; i < parts; i++) {
+        const x1 = -30 + i * seg, x2 = x1 + seg, tilt = (k % 2 ? 1 : -1) * 18;
+        swags.push([x1, y + (i % 2 ? tilt : -tilt), x2, y + (i % 2 ? -tilt : tilt), 34 + r() * 30, Math.round(seg / 30)]);
+      }
+    }
+    return garlandSVG(swags, 5.2, 'bgg', W, H);
+  }
+  /* The same garland as a self-contained picture for the day summary card; it blinks on its own. */
+  function cardGarland() {
+    const st = '<style>.lit{animation:t 6s ease-in-out infinite}.ph1{animation-delay:-2s}.ph2{animation-delay:-4s}@keyframes t{0%,100%{opacity:1}50%{opacity:.1}}@media (prefers-reduced-motion:reduce){.lit{animation:none}}</style>';
+    const svgText = garlandSVG([[0, 3, 72, 3, 9, 3], [72, 3, 144, 3, 9, 3]], 5.2, '', 144, 32).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace('<defs>', st + '<defs>');
+    return `url("data:image/svg+xml,${encodeURIComponent(svgText)}")`;
+  }
+
+  function decor(name) {
+    const r = rng(name.length * 7919 + 17), out = [];
+    const side = i => (i % 2 ? 100 - r() * 16 : r() * 16); /* keep things near the left and right edges */
+    if (name === 'autumn') {
+      const cols = ['#C2652A', '#E09A3E', '#9C4A23', '#B5892E', '#D67B2C', '#8C8A3A'];
+      for (let i = 0; i < 24; i++) {
+        const x = i < 18 ? side(i) : r() * 100, y = r() * 100, w = 22 + r() * 26;
+        out.push(svg('0 0 40 40', leaf(cols[i % cols.length], r() > .45), w, `left:calc(${x.toFixed(1)}% - ${w / 2}px);top:${y.toFixed(1)}%;transform:rotate(${Math.round(r() * 360)}deg);opacity:${(.5 + r() * .35).toFixed(2)}`));
+      }
+      /* a small pile in the bottom corners */
+      for (let i = 0; i < 10; i++) {
+        const left = i % 2 === 0, w = 26 + r() * 18;
+        out.push(svg('0 0 40 40', leaf(cols[(i * 3) % cols.length], i % 3 !== 0), w, `${left ? 'left' : 'right'}:${(-8 + r() * 50).toFixed(0)}px;bottom:${(-6 + r() * 20).toFixed(0)}px;transform:rotate(${Math.round(r() * 360)}deg);opacity:.85`));
+      }
+    } else if (name === 'halloween') {
+      out.push(svg('0 0 110 110', web(), 150, 'left:-2px;top:var(--top-h,110px);opacity:.45'));
+      out.push(svg('0 0 110 110', web(), 118, 'right:-2px;top:var(--top-h,110px);opacity:.38;transform:scaleX(-1)'));
+      out.push(`<div class="spider" style="right:58px;top:var(--top-h,110px)"><i></i>${svg('0 0 24 22', SPIDER, 26, 'position:relative;display:block')}</div>`);
+      for (let i = 0; i < 8; i++) {
+        const x = side(i), y = 22 + r() * 56, w = 26 + r() * 22;
+        out.push(svg('0 0 30 13', BAT, w, `left:calc(${x.toFixed(1)}% - ${w / 2}px);top:${y.toFixed(1)}%;transform:rotate(${Math.round(-15 + r() * 30)}deg);opacity:${(.6 + r() * .3).toFixed(2)}`));
+      }
+      [['left', -10, 64, 1], ['left', 44, 40, 0], ['right', -6, 70, 1], ['right', 54, 36, 0]].forEach(([s, off, w, face]) =>
+        out.push(svg('0 0 40 36', pumpkin(face), w, `${s}:${off}px;bottom:${face ? -4 : 2}px;opacity:.95`)));
+    } else if (name === 'winter' || name === 'newyear') {
+      for (let i = 0; i < 34; i++) {
+        const x = r() * 100, w = 8 + r() * 14, dur = 16 + r() * 22;
+        out.push(`<i class="flake" style="left:${x.toFixed(1)}%;--y:${(r() * 100).toFixed(1)}vh;--d:${dur.toFixed(1)}s;--dl:${(-r() * dur).toFixed(1)}s;--sw:${Math.round(10 + r() * 30)}px;opacity:${(.4 + r() * .45).toFixed(2)}">${svg('-11 -11 22 22', flake(), w, 'display:block;position:static')}</i>`);
+      }
+      /* snowdrifts along the bottom edge */
+      out.push(svg('0 0 400 40', '<path d="M0 40 L0 22 Q40 6 90 18 Q140 30 190 14 Q250 0 300 16 Q350 28 400 12 L400 40 Z" fill="#E7F0F6" opacity=".16"/><path d="M0 40 L0 30 Q60 18 120 28 Q200 40 260 26 Q330 14 400 26 L400 40 Z" fill="#E7F0F6" opacity=".22"/>', '100%', 'left:0;bottom:0;height:40px', 'preserveAspectRatio="none"'));
+      if (name === 'newyear') out.unshift(bgGarland());
+    }
+    return out.join('');
+  }
+
+  /* A small scene at the very end of every tab, so the phone shows decorations too. */
+  function scene(name) {
+    const r = rng(name.length * 104729 + 3);
+    let b = '', w = 360, h = 84;
+    if (name === 'autumn') {
+      const cols = ['#C2652A', '#E09A3E', '#9C4A23', '#B5892E', '#D67B2C', '#8C8A3A'];
+      for (let i = 0; i < 26; i++) {
+        const x = 40 + r() * 280, y = 44 + r() * 26 - Math.max(0, 40 - Math.abs(x - 180)) * .3, sz = 18 + r() * 16;
+        b += `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(${(sz / 40).toFixed(2)}) translate(-20 -20)">${leaf(cols[i % cols.length], r() > .4)}</g>`;
+      }
+    } else if (name === 'halloween') {
+      b += `<g transform="translate(96 30) scale(1.25)">${pumpkin(0)}</g><g transform="translate(140 6) scale(1.95)">${pumpkin(1)}</g><g transform="translate(222 34) scale(1.15)">${pumpkin(1)}</g><g transform="translate(70 56) scale(.62)">${pumpkin(0)}</g><g transform="translate(268 58) scale(.58)">${pumpkin(0)}</g>`;
+    } else if (name === 'winter' || name === 'newyear') {
+      b += '<path d="M0 84 L0 70 Q60 56 120 66 Q180 76 240 64 Q300 54 360 68 L360 84 Z" fill="#E7F0F6" opacity=".9"/>';
+      if (name === 'winter') {
+        b += '<circle cx="180" cy="58" r="17" fill="#EEF5FA"/><circle cx="180" cy="32" r="12" fill="#EEF5FA"/><circle cx="180" cy="12" r="8.5" fill="#EEF5FA"/>'
+          + '<circle cx="177" cy="10" r="1.3" fill="#24313B"/><circle cx="183" cy="10" r="1.3" fill="#24313B"/><path d="M180 13 L188 15 L180 15.5 Z" fill="#E88A3A"/>'
+          + '<path d="M170 21 Q180 26 190 21 L190 24 Q180 29 170 24 Z M186 23 L189 33 L185 33 L183 24 Z" fill="#D9473F"/><circle cx="180" cy="30" r="1.4" fill="#24313B"/><circle cx="180" cy="36" r="1.4" fill="#24313B"/>'
+          + '<path d="M168 30 L152 22 M156 24 L152 18 M192 30 L208 22 M204 24 L209 19" stroke="#7A5A42" stroke-width="2" stroke-linecap="round"/>';
+      } else {
+        b += '<rect x="176" y="62" width="8" height="10" fill="#6B4A32"/>'
+          + '<path d="M180 6 L203 40 L157 40 Z M180 20 L208 54 L152 54 Z M180 34 L213 68 L147 68 Z" fill="#2F7A4A"/>'
+          + '<path d="M180 0 L182.4 5.2 L188 5.6 L183.7 9.2 L185.1 14.6 L180 11.6 L174.9 14.6 L176.3 9.2 L172 5.6 L177.6 5.2 Z" fill="#E8C478"/>'
+          + '<circle cx="172" cy="34" r="3" fill="#E5484D"/><circle cx="190" cy="37" r="3" fill="#E8C478"/><circle cx="166" cy="50" r="3" fill="#E8C478"/><circle cx="186" cy="51" r="3" fill="#E5484D"/><circle cx="196" cy="63" r="3" fill="#E5484D"/><circle cx="162" cy="64" r="3" fill="#3FB27F"/><circle cx="178" cy="62" r="3" fill="#E8C478"/>'
+          + '<rect x="214" y="58" width="20" height="16" rx="2" fill="#D4282E"/><rect x="222" y="58" width="4" height="16" fill="#E8C478"/><rect x="122" y="62" width="18" height="12" rx="2" fill="#219A5B"/><rect x="129" y="62" width="4" height="12" fill="#E8C478"/>';
+      }
+      for (let i = 0; i < 6; i++) b += `<g transform="translate(${(30 + r() * 300).toFixed(0)} ${(8 + r() * 40).toFixed(0)}) scale(${(.35 + r() * .3).toFixed(2)})">${flake()}</g>`;
+    } else return 'none';
+    return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${b}</svg>`)}")`;
+  }
+
+  function topHeight() {
+    headDecor();
+    const t = document.querySelector('.top');
+    if (t) document.documentElement.style.setProperty('--top-h', Math.round(t.getBoundingClientRect().bottom) + 'px');
+  }
+  let shown = null, current = 'default';
+  function headDecor() {
+    const top = document.querySelector('.top');
+    if (!top) return;
+    const have = document.getElementById('hgw');
+    if (current === 'newyear' && !have) top.insertAdjacentHTML('beforeend', `<div id="hgw" aria-hidden="true">${headGarland()}</div>`);
+    if (current !== 'newyear' && have) have.remove();
+  }
+  function apply(c) {
+    c = c || choice();
+    const name = c === 'auto' ? season(new Date()) : c;
+    const root = document.documentElement;
+    current = name;
+    if (name === 'default') root.removeAttribute('data-season'); else root.setAttribute('data-season', name);
+    const layer = document.getElementById('decor');
+    if (shown !== name) { if (layer) layer.innerHTML = decor(name); root.style.setProperty('--scene', scene(name)); root.style.setProperty('--card-garland', name === 'newyear' ? cardGarland() : 'none'); shown = name; }
+    topHeight();
+    try {
+      const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+      const meta = document.querySelector('meta[name="theme-color"]'); if (meta && bg) meta.setAttribute('content', bg);
+      const SB = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar;
+      if (SB && bg) SB.setBackgroundColor({ color: bg }).catch(() => {});
+    } catch (e) {}
+    return name;
+  }
+  function set(c) { try { localStorage.setItem('kbju.theme', JSON.stringify(c)); } catch (e) {} return apply(c); }
+  let rt = null;
+  window.addEventListener('resize', () => {
+    topHeight();
+    clearTimeout(rt);
+    rt = setTimeout(() => { if (current === 'newyear') { const l = document.getElementById('decor'); if (l) l.innerHTML = decor('newyear'); } }, 250);
+  });
+  return { LIST, season, choice, apply, set, topHeight };
+})();
+</script>
 <style>
 /* Layout: one narrow column like a food label — sticky header with tabs, day summary, then meal cards. */
 :root {
@@ -26,6 +252,44 @@
   --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r: 14px;
 }
+/* Seasonal themes: only the neutrals and the accent change. Macro colors (Б/Ж/У) and the warning red stay the same everywhere. */
+:root { --mark: ""; --strip: none; --strip-h: 4px; }
+:root[data-season="autumn"] { --bg: #14110C; --surface: #1F1A13; --surface-2: #19150F; --line: #362D20; --ink: #F0E8DC; --muted: #A89A86; --accent: #E09A3E; --accent-ink: #1C1206; --accent-soft: #3A2A14; --mark: "🍂";
+  --strip: linear-gradient(90deg, #8A3B1E, #C2652A, #E09A3E, #8C8A3A, #C2652A, #8A3B1E); }
+:root[data-season="halloween"] { --bg: #120E15; --surface: #1D1721; --surface-2: #17121B; --line: #342839; --ink: #EEE6F0; --muted: #A596AA; --accent: #F2862E; --accent-ink: #1E0E02; --accent-soft: #3B2314; --mark: "🎃"; }
+:root[data-season="winter"] { --bg: #0E1317; --surface: #182027; --surface-2: #131A20; --line: #27333D; --ink: #E7EEF3; --muted: #94A3AF; --accent: #8CC4E8; --accent-ink: #0A1722; --accent-soft: #1B2E3C; --mark: "❄️";
+  --strip-h: 12px; --strip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='12'%3E%3Cpath d='M0 0 H46 V2 Q44 2 43 3 L41 11 L39 3 Q37 2 33 3 L31.5 7 L30 3 Q27 2 22 3 L20 9 L18 3 Q15 2 11 3 L9.5 6 L8 3 Q5 2 0 2 Z' fill='%23D7E8F3' fill-opacity='.85'/%3E%3C/svg%3E") 0 0 / 46px 12px repeat-x; }
+:root[data-season="newyear"] { --bg: #0D1411; --surface: #16201B; --surface-2: #111A15; --line: #263429; --ink: #EEF0EA; --muted: #9AA59C; --accent: #E8C478; --accent-ink: #1C1505; --accent-soft: #352E1A; --mark: "🎄";
+  }
+
+#hgw { position: absolute; left: 0; right: 0; top: 100%; margin-top: -4px; height: 34px; overflow: hidden; pointer-events: none; }
+#hgw svg, #decor .bgg { display: block; }
+#decor .bgg { position: absolute; left: 0; top: 0; }
+:root[data-season="newyear"] main .wrap { padding-top: 40px; }
+:root[data-season="newyear"] .summary { padding-top: 40px; }
+:root[data-season="newyear"] .summary::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 32px; pointer-events: none; background: var(--card-garland) 0 0 / auto 32px round no-repeat; }
+.lit { animation: twinkle 6s ease-in-out infinite; }
+.lit.ph1 { animation-delay: -2s; }
+.lit.ph2 { animation-delay: -4s; }
+@keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .1; } }
+#decor { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+#decor .dk { position: absolute; height: auto; }
+main { position: relative; z-index: 1; }
+:root[data-season] main::after { content: ""; display: block; height: 84px; margin-top: -36px; background: var(--scene, none) center bottom / auto 84px no-repeat; }
+#decor .flake { position: absolute; top: 0; display: block; animation: snow var(--d) linear var(--dl) infinite; }
+@keyframes snow { 0% { transform: translate(0, -5vh); } 50% { transform: translate(var(--sw), 50vh); } 100% { transform: translate(0, 105vh); } }
+#decor .spider { position: absolute; display: flex; flex-direction: column; align-items: center; opacity: .9; animation: dangle 7s ease-in-out infinite alternate; transform-origin: top center; }
+#decor .spider i { width: 1px; height: 64px; background: rgba(217, 207, 227, .5); }
+#decor .spider svg { margin-top: -4px; }
+@keyframes dangle { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) {
+  #decor .flake, #decor .spider, .lit { animation: none; }
+  #decor .flake { top: var(--y); }
+}
+/* snow lying on the day summary in winter */
+:root[data-season="winter"] .summary, :root[data-season="newyear"] .summary { position: relative; }
+:root[data-season="winter"] .summary::before, :root[data-season="newyear"] .summary::before { content: ""; position: absolute; left: 10px; right: 10px; top: -7px; height: 12px; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M0 12 Q2 5 10 6 Q16 1 26 5 Q34 2 40 6 Q50 0 62 5 Q70 2 78 6 Q88 1 98 5 Q108 2 114 6 Q119 6 120 12 Z' fill='%23EEF5FA'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat; }
 * { box-sizing: border-box; }
 html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; -webkit-tap-highlight-color: transparent; }
@@ -46,6 +310,14 @@ button { cursor: pointer; }
 .top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-block: 12px 10px; }
 .brand { font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: -.01em; margin: 0; flex: 1 1 auto; }
 .brand span { color: var(--accent); }
+.brand::after { content: var(--mark); margin-left: 8px; font-size: .9em; }
+.top::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; margin-top: -2px; height: var(--strip-h); background: var(--strip); pointer-events: none; }
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.theme { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); text-align: left; min-width: 0; }
+.theme[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.theme .sw { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; font-size: 15px; border: 1px solid rgba(255,255,255,.08); }
+.theme b { display: block; font-weight: 500; font-size: 14px; }
+.theme small { display: block; font-size: 12px; color: var(--muted); }
 .status { font-size: 12px; color: var(--muted); }
 .status.err { color: var(--warn); }
 .tabs { display: flex; gap: 2px; width: 100%; overflow-x: auto; scrollbar-width: none; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
@@ -441,6 +713,8 @@ textarea.field { min-height: 120px; font-family: ui-monospace, monospace; font-s
 
 </head>
 <body>
+<div id="decor" aria-hidden="true"></div>
+<script>KBJU_THEME.apply();</script>
 <header class="top">
   <div class="wrap">
     <h1 class="brand">Дневник <span>КБЖУ</span></h1>
@@ -1661,6 +1935,7 @@ function profileHTML() {
         <label class="f"><span>Углеводы, г</span><input class="field num" id="pf-mc" data-prof="mC" type="number" inputmode="numeric" value="${val('mC')}"></label>
       </div>` : ''}
     </section>
+    ${themesHTML()}
     <section class="card">
       <h2>Резервная копия и экспорт</h2>
       <p class="fine">Файл со всеми продуктами, днями, ценами, весом и параметрами. Пригодится для переноса или на всякий случай.</p>
@@ -1674,6 +1949,22 @@ function profileHTML() {
       ${S.ui.importData ? `<div class="confirm"><span>В файле ${S.ui.importData.products.length} продуктов и ${Object.keys(S.ui.importData.days).length} дней. Совпадающие продукты и дни будут заменены, параметры тоже.</span><button class="btn sm primary" data-act="importYes">Загрузить</button><button class="btn sm" data-act="importNo">Отмена</button></div>` : ''}
       ${S.ui.exportText ? `<p class="fine">Не получилось скачать файл. Скопируйте текст и сохраните его в файл .json:</p><textarea class="field" id="export-text" readonly>${esc(S.ui.exportText)}</textarea><div class="row-actions"><button class="btn sm" data-act="copyExport">Скопировать</button></div>` : ''}
       ${S.ui.msg ? `<p class="fine">${esc(S.ui.msg)}</p>` : ''}
+    </section>`;
+}
+const THEME_SW = { default: ['#15110E', '#E07A55'], autumn: ['#14110C', '#E09A3E'], halloween: ['#120E15', '#F2862E'], winter: ['#0E1317', '#8CC4E8'], newyear: ['#0D1411', '#E8C478'] };
+function themesHTML() {
+  const T = window.KBJU_THEME, cur = T.choice(), now = T.season(new Date());
+  const nameOf = k => (T.LIST.find(x => x[0] === k) || [])[1];
+  const tile = ([k, label, mark]) => {
+    const key = k === 'auto' ? now : k, [bg, ac] = THEME_SW[key];
+    return `<button class="theme" data-act="theme" data-v="${k}" aria-pressed="${cur === k}">
+      <span class="sw" style="background:${bg};box-shadow:inset 0 -8px 0 ${ac}">${k === 'auto' ? '🗓️' : mark}</span>
+      <span><b>${label}</b>${k === 'auto' ? `<small>сейчас: ${nameOf(now)}</small>` : ''}</span></button>`;
+  };
+  return `<section class="card">
+      <h2>Оформление</h2>
+      <div class="themes">${T.LIST.map(tile).join('')}</div>
+      <p class="fine">«По сезону» меняет оформление само: осень с сентября, Хэллоуин с 24 по 31 октября, зима с 25 ноября до конца февраля, Новый год с 1 декабря по 31 января. С марта по август стоит обычное оформление. Цвета белков, жиров и углеводов во всех темах одинаковые.</p>
     </section>`;
 }
 function goalResultHTML() {
@@ -2012,6 +2303,7 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'sex': S.pdraft.sex = t.dataset.v; render(); break;
+    case 'theme': window.KBJU_THEME.set(t.dataset.v); render(); break;
     case 'goal': S.pdraft.goal = t.dataset.v; render(); break;
     case 'applyProf': S.profile = clone(S.pdraft); touchProfile(); render(); break;
     case 'cancelProf': S.pdraft = clone(S.profile); render(); break;
@@ -2190,6 +2482,7 @@ document.addEventListener('drop', e => {
 document.addEventListener('dragend', () => { if (dragId) { dragId = null; clearDrop(); } });
 
 /* Refresh from other devices when the page comes back into view. */
+document.addEventListener('visibilitychange', () => { if (!document.hidden) window.KBJU_THEME.apply(); });
 document.addEventListener('visibilitychange', async () => {
   if (!S.store) return;
   if (document.hidden) { flushDay(); return; }
@@ -2248,6 +2541,7 @@ async function init() {
   await loadDay(S.date);
   S.ready = true;
   render();
+  window.KBJU_THEME.topHeight();
 }
 init();
 })();
