@@ -709,7 +709,7 @@ function mealHTML(m, idx) {
         const t = itemTotals(it);
         return `<li class="item">
           <div class="iname"><div>${esc(it.name)}</div><small class="num" data-imac="${it.id}">Б ${r1(t.p)} · Ж ${r1(t.f)} · У ${r1(t.c)}</small></div>
-          <label class="qty"><input type="number" inputmode="decimal" min="0" step="1" id="g-${it.id}" value="${esc(it.grams)}" data-grams="${it.id}" data-meal="${m.id}" aria-label="Граммы: ${esc(it.name)}"> г${it.piece ? `<span class="pcs" data-ipcs="${it.id}">${pcsText(it)}</span>` : ''}</label>
+          <label class="qty"><input type="text" inputmode="decimal" autocomplete="off" min="0" step="1" id="g-${it.id}" value="${esc(it.grams)}" data-grams="${it.id}" data-meal="${m.id}" aria-label="Граммы: ${esc(it.name)}"> г${it.piece ? `<span class="pcs" data-ipcs="${it.id}">${pcsText(it)}</span>` : ''}</label>
           <span class="ikcal" data-ikcal="${it.id}">${r0(t.kcal)}<small>ккал</small></span>
           <button class="del" data-act="delItem" data-meal="${m.id}" data-item="${it.id}" aria-label="Убрать ${esc(it.name)}">×</button>
         </li>`; }).join('')}</ul>`
@@ -831,8 +831,8 @@ function pxCellHTML(p, sh, tag) {
   const c = row[sh.id] || {}, id = p.id + '__' + sh.id, unit = p.piece && c.unit !== 'g' ? 'pc' : 'g'; // pieces first for products with a piece weight
   const cls = [best && best.n > 1 && best.shop === sh.id ? 'best' : '', S.ui.pxBad.has(id) ? 'bad' : ''].join(' ');
   return `<${tag} class="${cls}" data-pxcell="${esc(id)}"><div class="pcell">
-      <input id="pxp-${esc(id)}" data-px="price" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.price ?? '')}" placeholder="цена" aria-label="Цена: ${esc(p.name)}, ${esc(sh.name)}"><span class="u">₽</span>
-      <input id="pxq-${esc(id)}" data-px="qty" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="number" inputmode="decimal" min="0" step="any" value="${esc(c.qty ?? (unit === 'pc' ? '1' : ''))}" placeholder="${unit === 'pc' ? 'шт' : 'вес'}" aria-label="Вес или количество в упаковке">
+      <input id="pxp-${esc(id)}" data-px="price" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(c.price ?? '')}" placeholder="цена" aria-label="Цена: ${esc(p.name)}, ${esc(sh.name)}"><span class="u">₽</span>
+      <input id="pxq-${esc(id)}" data-px="qty" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(c.qty ?? (unit === 'pc' ? '1' : ''))}" placeholder="${unit === 'pc' ? 'шт' : 'вес'}" aria-label="Вес или количество в упаковке">
       ${p.piece ? `<select id="pxu-${esc(id)}" data-px="unit" data-pid="${esc(p.id)}" data-sid="${esc(sh.id)}" aria-label="Единица"><option value="pc" ${unit === 'pc' ? 'selected' : ''}>шт</option><option value="g" ${unit === 'g' ? 'selected' : ''}>г</option></select>` : '<span class="u">г</span>'}
       <span class="per" data-pxper="${esc(id)}">${pxPerText(c, p, saved[sh.id])}</span>
     </div></${tag}>`;
@@ -847,15 +847,15 @@ function ptableHTML() {
     const groupsHere = groups.map(g => ({ ...g, items: g.items.filter(p => shopAllowed(p.id, sh.id, true)) })).filter(g => g.items.length);
     const chips = `<div class="chips shopchips" role="group" aria-label="Магазин">${shops.map(s => `<button class="chip" data-act="pxShop" data-sid="${esc(s.id)}" aria-pressed="${s.id === sh.id}">${esc(s.name)}</button>`).join('')}</div>`;
     if (!groupsHere.length) return chips + `<div class="mcard"><p class="empty mpad">${groups.length ? 'В этом магазине нет подходящих продуктов.' : emptyMsg}</p></div>`;
-    const body = groupsHere.map(g => (all ? groupHead(g, S.ui.pxQuery) : '') + (all && isCollapsed(g.id, S.ui.pxQuery) ? '' :
+    const body = groupsHere.map(g => (all ? groupHead({ ...g, id: 'px:' + g.id }, S.ui.pxQuery) : '') + (all && isCollapsed('px:' + g.id, S.ui.pxQuery) ? '' :
       g.items.map(p => `<div class="mrow" data-pxrow="${esc(p.id)}"><div class="mname">${esc(p.name)}</div>${pxCellHTML(p, sh, 'div')}</div>`).join(''))).join('');
     return chips + `<div class="mcard">${body}</div>`;
   }
   const cols = shops.length + 1;
   const head = `<thead><tr><th class="pname" scope="col">Продукт</th>${shops.map(s => `<th scope="col">${esc(s.name)}</th>`).join('')}</tr></thead>`;
   if (!groups.length) return head + `<tbody><tr><td class="pname" colspan="${cols}">${emptyMsg}</td></tr></tbody>`;
-  const body = groups.map(g => (all ? `<tr class="gh"><td colspan="${cols}">${groupHead(g, S.ui.pxQuery)}</td></tr>` : '') +
-    (all && isCollapsed(g.id, S.ui.pxQuery) ? '' : g.items.map(pxRowHTML).join(''))).join('');
+  const body = groups.map(g => (all ? `<tr class="gh"><td colspan="${cols}">${groupHead({ ...g, id: 'px:' + g.id }, S.ui.pxQuery)}</td></tr>` : '') +
+    (all && isCollapsed('px:' + g.id, S.ui.pxQuery) ? '' : g.items.map(pxRowHTML).join(''))).join('');
   return head + `<tbody>${body}</tbody>`;
 }
 
@@ -881,7 +881,7 @@ function cmpTableHTML() {
       return `<article class="mcmp"><h3>${esc(p.name)}</h3><ul>${lines}</ul>
         <div class="meval num"><span>100 г<b>${rub(best.v)}</b></span><span>100 ккал<b>${rub(kcalCost(best, p))}</b></span><span>10 г белка<b>${rub(protCost(best, p))}</b></span></div></article>`;
     };
-    return groups.map(g => (all ? groupHead(g, S.ui.pxQuery) : '') + (all && isCollapsed(g.id, S.ui.pxQuery) ? '' : g.items.map(card).join(''))).join('');
+    return groups.map(g => (all ? groupHead({ ...g, id: 'cmp:' + g.id }, S.ui.pxQuery) : '') + (all && isCollapsed('cmp:' + g.id, S.ui.pxQuery) ? '' : g.items.map(card).join(''))).join('');
   }
 
   const cols = shops.length + 4;
@@ -892,8 +892,8 @@ function cmpTableHTML() {
     const cells = shops.map(sh => { if (!shopAllowed(p.id, sh.id)) return '<td class="num-col"></td>'; const u = unitPrice(r[sh.id], p); return `<td class="num-col ${u && best.n > 1 && best.shop === sh.id ? 'best' : ''}">${u ? rub(u.v) + (u.note ? `<small>${u.note}</small>` : '') : '—'}</td>`; }).join('');
     return `<tr><th class="pname" scope="row">${esc(p.name)}</th>${cells}<td class="num-col">${pxBestText(best)}</td><td class="num-col">${rub(kcalCost(best, p))}</td><td class="num-col">${rub(protCost(best, p))}</td></tr>`;
   };
-  const body = groups.map(g => (all ? `<tr class="gh"><td colspan="${cols}">${groupHead(g, S.ui.pxQuery)}</td></tr>` : '') +
-    (all && isCollapsed(g.id, S.ui.pxQuery) ? '' : g.items.map(row).join(''))).join('');
+  const body = groups.map(g => (all ? `<tr class="gh"><td colspan="${cols}">${groupHead({ ...g, id: 'cmp:' + g.id }, S.ui.pxQuery)}</td></tr>` : '') +
+    (all && isCollapsed('cmp:' + g.id, S.ui.pxQuery) ? '' : g.items.map(row).join(''))).join('');
   return head + `<tbody>${body}</tbody>`;
 }
 try { matchMedia(PX_NARROW).addEventListener('change', () => { if (S.tab === 'prices') render(); }); } catch (e) {}
@@ -1207,7 +1207,7 @@ function dishRowsHTML() {
   return items.map((it, i) => {
     const cur = S.products[it.pid], src = cur || it, g = num(it.g) || 0;
     return `<div class="drow"><span class="dn">${esc(src.name)}${cur ? '' : ' <small>(удалён из базы)</small>'}</span>
-      <label class="qty"><input type="number" inputmode="decimal" min="0" step="1" id="dg-${i}" data-dg="${i}" value="${esc(it.g)}" aria-label="Граммы: ${esc(src.name)}"> г</label>
+      <label class="qty"><input type="text" inputmode="decimal" autocomplete="off" min="0" step="1" id="dg-${i}" data-dg="${i}" value="${esc(it.g)}" aria-label="Граммы: ${esc(src.name)}"> г</label>
       <span class="dk num" data-dk="${i}">${r0((src.kcal || 0) * g / 100)}<small>ккал</small></span>
       <button type="button" class="del" data-act="dishDel" data-i="${i}" aria-label="Убрать ${esc(src.name)}">×</button></div>`;
   }).join('');
@@ -1243,7 +1243,7 @@ function dishModalHTML() {
         <input class="field" id="dm-search" type="search" value="${esc(m.q)}" placeholder="Добавить продукт из базы…" autocomplete="off">
         <div class="dres" id="dm-results">${dishResultsHTML()}</div>
       </div>
-      <label class="f portions"><span>На сколько порций делится</span><input class="field" id="dm-portions" type="number" inputmode="decimal" min="0" step="any" value="${esc(d.portions)}"></label>
+      <label class="f portions"><span>На сколько порций делится</span><input class="field" id="dm-portions" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(d.portions)}"></label>
       <p class="fine">В дневнике 1 порция считается за 1 шт.</p>
       <div class="dsum" id="dm-sum">${dishSumHTML()}</div>
       <p class="err" id="dm-err" ${m.err ? '' : 'hidden'}>${esc(m.err || '')}</p>
@@ -1452,7 +1452,7 @@ function qtyStepHTML() {
         <button class="del" data-act="selRemove" data-i="${i}" aria-label="Убрать ${esc(p.name)}">×</button></div>
       <div class="qctl">
         <button class="stp" data-act="selStep" data-i="${i}" data-d="-1" aria-label="Меньше">−</button>
-        <input class="field qv" id="sq-${i}" data-selq="${i}" type="number" inputmode="decimal" min="0" step="any" value="${esc(s.qty)}" aria-label="Количество: ${esc(p.name)}">
+        <input class="field qv" id="sq-${i}" data-selq="${i}" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(s.qty)}" aria-label="Количество: ${esc(p.name)}">
         <button class="stp" data-act="selStep" data-i="${i}" data-d="1" aria-label="Больше">+</button>
         <select class="field qu" id="su-${i}" data-selunit="${i}" aria-label="Единица">${units.map(([v, l]) => `<option value="${v}" ${s.unit === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       </div>
@@ -1578,8 +1578,8 @@ function profileHTML() {
       <div class="f"><span>Пол</span><div class="seg" role="group"><button data-act="sex" data-v="m" aria-pressed="${p.sex !== 'f'}">Мужской</button><button data-act="sex" data-v="f" aria-pressed="${p.sex === 'f'}">Женский</button></div></div>
       <div class="grid2">
         <label class="f"><span>Возраст, лет</span><input class="field num" id="pf-age" data-prof="age" type="number" inputmode="numeric" min="10" max="100" value="${val('age')}"></label>
-        <label class="f"><span>Рост, см</span><input class="field num" id="pf-height" data-prof="height" type="number" inputmode="decimal" min="100" max="250" value="${val('height')}"></label>
-        <label class="f"><span>Вес, кг</span><input class="field num" id="pf-weight" data-prof="weight" type="number" inputmode="decimal" min="30" max="300" step="0.1" value="${val('weight')}"></label>
+        <label class="f"><span>Рост, см</span><input class="field num" id="pf-height" data-prof="height" type="text" inputmode="decimal" autocomplete="off" min="100" max="250" value="${val('height')}"></label>
+        <label class="f"><span>Вес, кг</span><input class="field num" id="pf-weight" data-prof="weight" type="text" inputmode="decimal" autocomplete="off" min="30" max="300" step="0.1" value="${val('weight')}"></label>
       </div>
       <label class="f"><span>Активность</span><select class="field" id="pf-activity" data-prof="activity">${ACTIVITY.map(([v, t]) => `<option value="${v}" ${Number(p.activity) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <div class="f"><span>Режим</span><div class="seg goalseg" role="group">${Object.entries(GOALS).map(([k, t]) => `<button data-act="goal" data-v="${k}" aria-pressed="${p.goal === k}">${t}</button>`).join('')}</div></div>
@@ -1647,13 +1647,13 @@ function renderModal() {
       <div class="label100">
         <div class="lh">Пищевая ценность в 100 г</div>
         <div class="grid4">
-          <label class="f"><span>Ккал</span><input class="field" id="pm-kcal" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.kcal)}"></label>
-          <label class="f"><span>Белки</span><input class="field" id="pm-p" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.p)}"></label>
-          <label class="f"><span>Жиры</span><input class="field" id="pm-f" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.f)}"></label>
-          <label class="f"><span>Углев.</span><input class="field" id="pm-c" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.c)}"></label>
+          <label class="f"><span>Ккал</span><input class="field" id="pm-kcal" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(p.kcal)}"></label>
+          <label class="f"><span>Белки</span><input class="field" id="pm-p" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(p.p)}"></label>
+          <label class="f"><span>Жиры</span><input class="field" id="pm-f" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(p.f)}"></label>
+          <label class="f"><span>Углев.</span><input class="field" id="pm-c" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(p.c)}"></label>
         </div>
       </div>
-      <label class="f"><span>Вес 1 штуки, г (необязательно)</span><input class="field" id="pm-piece" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.piece ?? '')}" placeholder="например, для яиц или фруктов"></label>
+      <label class="f"><span>Вес 1 штуки, г (необязательно)</span><input class="field" id="pm-piece" type="text" inputmode="decimal" autocomplete="off" min="0" step="any" value="${esc(p.piece ?? '')}" placeholder="например, для яиц или фруктов"></label>
       ${S.prices.shops.length ? `<div class="f"><label class="check"><input type="checkbox" id="pm-only" ${shopExists(p.onlyShop) ? 'checked' : ''}> Продаётся только в одном магазине</label>
         <select class="field" id="pm-onlyshop" aria-label="Магазин" ${shopExists(p.onlyShop) ? '' : 'hidden'}>${S.prices.shops.map(s => `<option value="${esc(s.id)}" ${s.id === p.onlyShop ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
       ${m.editId ? '<p class="fine">Уже записанные дни сохранят старые значения.</p>' : ''}
