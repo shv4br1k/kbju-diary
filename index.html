@@ -190,9 +190,6 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .pxsort .field { width: auto; padding: 6px 8px; }
 .cost-line { margin: 0; font-size: 14px; color: var(--muted); }
 .cost-line b { color: var(--ink); }
-.toast { position: fixed; z-index: 15; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.4); font-size: 14px; }
-.toast span { min-width: 0; overflow-wrap: anywhere; }
-.toast .btn { flex: none; color: var(--accent); }
 .row-actions .push-right { margin-left: auto; }
 .weektop { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: center; }
 .donut { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; flex: 1 1 300px; min-width: 0; }
@@ -475,7 +472,6 @@ textarea.field { min-height: 120px; font-family: ui-monospace, monospace; font-s
 <main><div class="wrap" id="view"><div class="loading">Загружаю дневник…</div></div></main>
 <div id="sheet-root"></div>
 <div id="modal-root"></div>
-<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 (() => {
@@ -1505,7 +1501,6 @@ function addSelected() {
   touchDay();
   S.ui.mealsClosed.delete(meal.id);
   closeSheet();
-  showUndo(meal, added);
 }
 
 /* The phone's Back button steps back inside the sheet instead of leaving the app. */
@@ -1838,29 +1833,7 @@ function shiftDay(delta) {
   const d = parseDate(S.date); d.setDate(d.getDate() + delta);
   goDay(isoDate(d));
 }
-/* Undo for the last added product: a toast with a button, open for 8 seconds. */
-let undo = null, undoTimer = null;
-function showUndo(meal, items) {
-  items = [].concat(items);
-  undo = { date: S.date, meal: meal.id, items: items.map(i => i.id) };
-  const el = $('#toast');
-  const n = items.length, word = n % 10 === 1 && n % 100 !== 11 ? 'продукт' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'продукта' : 'продуктов';
-  el.innerHTML = `<span>${n === 1 ? `Добавлено: ${esc(items[0].name)}` : `Добавлено ${n} ${word}`}</span><button class="btn sm" data-act="undoAdd">Отменить</button>`;
-  el.hidden = false;
-  clearTimeout(undoTimer); undoTimer = setTimeout(hideUndo, 8000);
-}
-function hideUndo() { undo = null; clearTimeout(undoTimer); const el = $('#toast'); if (el) el.hidden = true; }
-function undoAdd() {
-  const u = undo; hideUndo();
-  if (!u || u.date !== S.date) return;
-  const m = findMeal(u.meal); if (!m) return;
-  const before = m.items.length;
-  m.items = m.items.filter(i => !u.items.includes(i.id));
-  if (m.items.length !== before) { touchDay(); render(); }
-}
-
 async function goDay(date) {
-  hideUndo();
   S.ui.adding = null; S.ui.confirmDel = null;
   await loadDay(date); render();
 }
@@ -1893,7 +1866,6 @@ document.addEventListener('click', async e => {
       if (S.ui.mealsClosed.has(id)) S.ui.mealsClosed.delete(id); else { S.ui.mealsClosed.add(id); if (S.ui.adding === id) S.ui.adding = null; }
       render(); document.querySelector(`[data-act="toggleMeal"][data-meal="${CSS.escape(id)}"]`)?.focus(); break;
     }
-    case 'undoAdd': undoAdd(); break;
     case 'install': if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; $('#installbtn').hidden = true; }); } break;
     case 'prevWeek': S.week = addDays(S.week, -7); render(); break;
     case 'nextWeek': S.week = addDays(S.week, 7); render(); break;
