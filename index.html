@@ -180,7 +180,7 @@ window.KBJU_THEME = (function () {
     } else if (name === 'halloween') {
       b += `<g transform="translate(96 30) scale(1.25)">${pumpkin(0)}</g><g transform="translate(140 6) scale(1.95)">${pumpkin(1)}</g><g transform="translate(222 34) scale(1.15)">${pumpkin(1)}</g><g transform="translate(70 56) scale(.62)">${pumpkin(0)}</g><g transform="translate(268 58) scale(.58)">${pumpkin(0)}</g>`;
     } else if (name === 'winter' || name === 'newyear') {
-      b += '<path d="M0 84 L0 70 Q60 56 120 66 Q180 76 240 64 Q300 54 360 68 L360 84 Z" fill="#E7F0F6" opacity=".9"/>';
+      b += '<path d="M70 84 C80 70 110 64 140 64 Q180 58 220 64 C250 64 280 70 290 84 Z" fill="#E7F0F6" opacity=".9"/><path d="M40 84 C55 76 80 74 100 78 L120 84 Z M240 84 L260 78 C280 74 305 76 320 84 Z" fill="#E7F0F6" opacity=".55"/>';
       if (name === 'winter') {
         b += '<circle cx="180" cy="58" r="17" fill="#EEF5FA"/><circle cx="180" cy="32" r="12" fill="#EEF5FA"/><circle cx="180" cy="12" r="8.5" fill="#EEF5FA"/>'
           + '<circle cx="177" cy="10" r="1.3" fill="#24313B"/><circle cx="183" cy="10" r="1.3" fill="#24313B"/><path d="M180 13 L188 15 L180 15.5 Z" fill="#E88A3A"/>'
@@ -275,7 +275,9 @@ window.KBJU_THEME = (function () {
 #decor { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 #decor .dk { position: absolute; height: auto; }
 main { position: relative; z-index: 1; }
-:root[data-season] main::after { content: ""; display: block; height: 84px; margin-top: -36px; background: var(--scene, none) center bottom / auto 84px no-repeat; }
+:root[data-season] main { display: flex; flex-direction: column; min-height: calc(100vh - var(--top-h, 110px)); min-height: calc(100dvh - var(--top-h, 110px)); }
+:root[data-season] main > .wrap { width: 100%; }
+:root[data-season] main::after { content: ""; display: block; flex: none; height: 84px; margin-top: auto; background: var(--scene, none) center bottom / auto 84px no-repeat; }
 #decor .flake { position: absolute; top: 0; display: block; animation: snow var(--d) linear var(--dl) infinite; }
 @keyframes snow { 0% { transform: translate(0, -5vh); } 50% { transform: translate(var(--sw), 50vh); } 100% { transform: translate(0, 105vh); } }
 #decor .spider { position: absolute; display: flex; flex-direction: column; align-items: center; opacity: .9; animation: dangle 7s ease-in-out infinite alternate; transform-origin: top center; }
