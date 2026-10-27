@@ -38,7 +38,6 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
-          node patch-android.mjs
 
       - name: Иконки и заставка
         working-directory: apk
@@ -60,15 +59,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk ../../kbju-diary.apk
 
-      - name: Пробная сборка (не с main)
-        if: github.ref != 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: kbju-diary-test
-          path: kbju-diary.apk
-
       - name: Публикация
-        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-${{ github.run_number }}
