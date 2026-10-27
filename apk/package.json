@@ -11,8 +11,10 @@
     "@capacitor/cli": "6.2.0",
     "@capacitor/core": "6.2.0",
     "@capacitor/filesystem": "6.0.2",
+    "@capacitor/local-notifications": "^6.0.0",
     "@capacitor/share": "6.0.3",
-    "@capacitor/status-bar": "6.0.2"
+    "@capacitor/status-bar": "6.0.2",
+    "capacitor-health": "0.0.14"
   },
   "devDependencies": {
     "@capacitor/assets": "3.0.5",

@@ -507,6 +507,12 @@ main .wrap { padding-block: 18px 48px; display: flex; flex-direction: column; ga
 .sectitle { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 16px; }
 .ptable .sub { font-weight: 400; }
 .ptable td.num-col.best { color: var(--ink); font-weight: 600; }
+.stepsrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
+.stepsrow b { font-weight: 600; }
+.stepsico { font-size: 15px; }
+.stepsburn { margin-left: auto; color: var(--muted); }
+.stepsburn b { color: var(--ink); }
+.warnline { color: var(--warn); }
 .costrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
 .costrow .costval { color: var(--muted); }
 .costrow .costval b { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -995,7 +1001,7 @@ function summaryHTML() {
   if (!g) {
     return `<div class="sum-top"><div class="kcal-big num">${r0(t.kcal)}<small>ккал</small></div></div>
       <div class="macros">${macroHTML('p', 'Белки', t.p)}${macroHTML('f', 'Жиры', t.f)}${macroHTML('c', 'Углеводы', t.c)}</div>
-      <p class="goalhint">Заполните <button class="linkbtn" data-act="tab" data-tab="profile">параметры</button>, и здесь появится ваша норма на день.</p>${dayCostHTML()}`;
+      <p class="goalhint">Заполните <button class="linkbtn" data-act="tab" data-tab="profile">параметры</button>, и здесь появится ваша норма на день.</p>${stepsLineHTML()}${dayCostHTML()}`;
   }
   const left = g.kcal - t.kcal, over = left < 0;
   return `<div class="sum-top">
@@ -1003,7 +1009,7 @@ function summaryHTML() {
       <div class="left ${over ? 'over' : ''}">${over ? 'Сверх нормы' : 'Осталось'} <b class="num">${r0(Math.abs(left))}</b> ккал</div>
     </div>
     <div class="bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, t.kcal / g.kcal * 100)}%"></i></div>
-    <div class="macros">${macroHTML('p', 'Белки', t.p, g.p)}${macroHTML('f', 'Жиры', t.f, g.f)}${macroHTML('c', 'Углеводы', t.c, g.c)}</div>${dayCostHTML()}`;
+    <div class="macros">${macroHTML('p', 'Белки', t.p, g.p)}${macroHTML('f', 'Жиры', t.f, g.f)}${macroHTML('c', 'Углеводы', t.c, g.c)}</div>${stepsLineHTML()}${dayCostHTML()}`;
 }
 function macroHTML(cls, label, v, goal) {
   if (!goal) return `<div class="macro ${cls}"><span class="lbl">${label}</span><span class="val num"><b>${r0(v)}</b> г</span></div>`;
@@ -1330,7 +1336,7 @@ async function calcExpected() {
   for (const [date, d] of Object.entries(days)) {
     if (date < from || date > isoDate(new Date()) || !d || !Array.isArray(d.meals)) continue;
     const items = d.meals.flatMap(m => m.items); if (!items.length) continue;
-    kcal += auto.tdee - sum(items).kcal; n++;
+    kcal += dayBurn(date, auto) - sum(items).kcal; n++;
   }
   S.wExpect = { from, n, kg: kcal / 7700 };
   if (S.tab === 'week' && $('#wexpect')) $('#wexpect').innerHTML = wExpectHTML();
@@ -1470,28 +1476,30 @@ function energyCalc() {
   const auto = computeGoal({ ...S.profile, manual: false }), g = computeGoal(S.profile);
   if (!auto || !g) return null;
   const mode = S.profile.goal || 'lose', tdee = auto.tdee, norm = g.kcal;
-  return { mode, tdee, norm,
+  const burn = date => dayBurn(date, auto);
+  return { mode, tdee, norm, burn,
     col: mode === 'lose' ? 'Дефицит' : mode === 'gain' ? 'Профицит' : 'Баланс',
-    dayVal: r => mode === 'lose' ? tdee - r.kcal : r.kcal - tdee };
+    dayVal: r => mode === 'lose' ? burn(r.date) - r.kcal : r.kcal - burn(r.date) };
 }
 const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + r0(Math.abs(v));
 const gFat = kcal => r0(Math.abs(kcal) / KCAL_PER_G_FAT);
 
 function energyHTML(filled, E) {
   if (!E) return `<section class="card"><h2>Расход и дефицит</h2><p class="fine">Чтобы посчитать, сколько калорий ты тратишь, заполни пол, возраст, рост и вес в параметрах (шестерёнка вверху).</p></section>`;
-  const n = filled.length, burned = E.tdee * n, eaten = filled.reduce((a, r) => a + r.kcal, 0);
+  const n = filled.length, burned = filled.reduce((a, r) => a + E.burn(r.date), 0), eaten = filled.reduce((a, r) => a + r.kcal, 0);
+  const withSteps = filled.filter(r => stepsKnown(r.date)).length;
   const dayWord = n === 1 ? 'день' : n < 5 ? 'дня' : 'дней';
   const lines = `<div class="enlines num">
       <span>Потрачено<b>${r0(burned)} ккал</b></span>
       <span>Съедено<b>${r0(eaten)} ккал</b></span>
-      <span>Расход в день<b>${r0(E.tdee)} ккал</b></span>
+      <span>Расход в день${withSteps ? ' (в среднем)' : ''}<b>${r0(n ? burned / n : E.tdee)} ккал</b></span>
     </div>`;
   const low = filled.filter(r => r.kcal < E.norm * 0.75).length;
   const lowNote = low ? `<p class="ennote">${low === 1 ? 'В один день' : `В ${low} ${low < 5 ? 'дня' : 'дней'}`} съедено заметно меньше нормы. Сильное недоедание тяжело держать, и оно может замедлять похудение. Лучше держаться ближе к норме.</p>` : '';
-  const fine = `<p class="fine">Оценка по ${n} ${dayWord} с записями: расход посчитан по параметрам, жир — из расчёта ≈ 7 700 ккал на 1 кг. Вес на весах колеблется из-за воды, поэтому реальный результат лучше смотреть по взвешиваниям за несколько недель.</p>`;
+  const fine = `<p class="fine">Оценка по ${n} ${dayWord} с записями: ${withSteps ? (withSteps === n ? 'расход посчитан по шагам,' : `расход посчитан по шагам за ${withSteps} из ${n} дн., за остальные — по параметрам,`) : 'расход посчитан по параметрам,'} жир — из расчёта ≈ 7 700 ккал на 1 кг. Вес на весах колеблется из-за воды, поэтому реальный результат лучше смотреть по взвешиваниям за несколько недель.</p>`;
 
   if (E.mode === 'lose') {
-    const deficit = burned - eaten, planned = (E.tdee - E.norm) * n, extra = E.norm * n - eaten;
+    const deficit = burned - eaten, planned = burned - E.norm * n, extra = E.norm * n - eaten;
     const planPart = Math.max(0, Math.min(planned, deficit)), extraPart = Math.max(0, extra), total = planPart + extraPart;
     const head = deficit > 0
       ? `<div class="kcal-big num">≈ ${gFat(deficit)}<small>г жира</small></div><p class="fine num">Дефицит ${r0(deficit)} ккал за ${n} ${dayWord}</p>`
@@ -1507,7 +1515,7 @@ function energyHTML(filled, E) {
     return `<section class="card encard"><h2>Дефицит за неделю</h2><div class="enhead">${head}</div>${barHTML}${legend}${lines}${lowNote}${fine}</section>`;
   }
   if (E.mode === 'gain') {
-    const surplus = eaten - burned, planned = (E.norm - E.tdee) * n, diff = eaten - E.norm * n;
+    const surplus = eaten - burned, planned = E.norm * n - burned, diff = eaten - E.norm * n;
     const head = surplus > 0
       ? `<div class="kcal-big num">+${r0(surplus)}<small>ккал сверх расхода</small></div><p class="fine num">По плану +${r0(planned)} ккал · ${diff >= 0 ? `съедено на ${r0(diff)} больше нормы` : `не добрано до нормы ${r0(-diff)}`}</p>`
       : `<div class="kcal-big num">0<small>ккал профицита</small></div><p class="fine num">Съедено на ${r0(-surplus)} ккал меньше, чем потрачено</p>`;
@@ -1991,6 +1999,8 @@ function profileHTML() {
         <label class="f"><span>Углеводы, г</span><input class="field num" id="pf-mc" data-prof="mC" type="number" inputmode="numeric" value="${val('mC')}"></label>
       </div>` : ''}
     </section>
+    ${stepsCardHTML()}
+    ${reminderCardHTML()}
     ${themesHTML()}
     <section class="card">
       <h2>Резервная копия и экспорт</h2>
@@ -2155,6 +2165,135 @@ async function saveProductForm() {
 
 /* Products and dishes as a spreadsheet: semicolons and decimal commas, as Russian Excel expects. */
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+/* ---------- steps (Health Connect) and the weigh-in reminder: Android app only ---------- */
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem('kbju.' + k)); return v == null ? d : v; } catch (e) { return d; } };
+const lsPut = (k, v) => { try { localStorage.setItem('kbju.' + k, JSON.stringify(v)); } catch (e) {} };
+S.steps = lsGet('steps', {});
+S.stepsOn = lsGet('stepsOn', false);
+S.reminder = { on: false, wd: 7, time: '09:00', ...lsGet('reminder', {}) };
+const STEP_BASE = 3000; // the "minimal activity" level already covers about this much walking
+const plug = name => (NATIVE && window.Capacitor.Plugins && window.Capacitor.Plugins[name]) || null;
+const stepsKnown = date => S.stepsOn && S.steps[date] != null;
+
+/* Walking burns about 0.5 kcal per kg of body weight per km above rest; a step is ~0.415 × height. */
+function stepKcal(steps) {
+  const w = num(S.profile.weight), h = num(S.profile.height);
+  if (!(w > 0 && h > 0)) return 0;
+  return Math.max(0, steps - STEP_BASE) * (h * 0.415 / 100000) * w * 0.5;
+}
+/* What a day cost: with steps, the sedentary level plus the walking; without, the level from the parameters. */
+function dayBurn(date, auto) {
+  if (!stepsKnown(date)) return auto.tdee;
+  return auto.bmr * 1.2 + stepKcal(S.steps[date]);
+}
+const fmtInt = v => Math.round(v).toLocaleString('ru-RU');
+const stepWord = n => { n = Math.round(n) % 100; const d = n % 10; return n > 10 && n < 20 ? 'шагов' : d === 1 ? 'шаг' : d >= 2 && d <= 4 ? 'шага' : 'шагов'; };
+
+function stepsLineHTML() {
+  if (!stepsKnown(S.date)) return '';
+  const st = S.steps[S.date], auto = computeGoal({ ...S.profile, manual: false });
+  return `<div class="stepsrow num"><span class="stepsico" aria-hidden="true">👣</span><span><b>${fmtInt(st)}</b> ${stepWord(st)}</span>${auto ? `<span class="stepsburn">расход за день ≈ <b>${fmtInt(dayBurn(S.date, auto))}</b> ккал</span>` : ''}</div>`;
+}
+
+async function syncSteps() {
+  const H = plug('HealthPlugin');
+  if (!H || !S.stepsOn) return;
+  const end = new Date(), start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 34);
+  try {
+    const r = await H.queryAggregated({ startDate: start.toISOString(), endDate: end.toISOString(), dataType: 'steps', bucket: 'day' });
+    for (const s of (r && r.aggregatedData) || []) {
+      const d = String(s.startDate).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) S.steps[d] = Math.round(Number(s.value) || 0);
+    }
+    lsPut('steps', S.steps);
+    S.ui.stepsErr = '';
+  } catch (e) {
+    S.ui.stepsErr = 'Не получилось забрать шаги. Проверьте, что в Health Connect у «Дневника КБЖУ» разрешены «Шаги».';
+  }
+  if (S.tab === 'week') calcExpected();
+  if (S.tab === 'diary' && $('#summary')) $('#summary').innerHTML = summaryHTML();
+  else if (S.tab === 'week') { S.weekData = null; render(); }
+  else if (S.tab === 'profile') render();
+}
+
+async function connectSteps() {
+  const H = plug('HealthPlugin');
+  if (!H) return;
+  S.ui.stepsErr = '';
+  try {
+    const av = await H.isHealthAvailable();
+    if (!av || !av.available) { S.ui.stepsErr = 'nohc'; render(); return; }
+    const res = await H.requestHealthPermissions({ permissions: ['READ_STEPS'] });
+    const ok = JSON.stringify(res || {}).includes('true');
+    if (!ok) { S.ui.stepsErr = 'denied'; render(); return; }
+    S.stepsOn = true; lsPut('stepsOn', true);
+    render();
+    await syncSteps();
+  } catch (e) {
+    S.ui.stepsErr = 'Health Connect не ответил: ' + (e && e.message ? e.message : 'неизвестная ошибка');
+    render();
+  }
+}
+
+const WD_FULL = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
+async function applyReminder() {
+  const LN = plug('LocalNotifications');
+  if (!LN) return;
+  lsPut('reminder', S.reminder);
+  try {
+    await LN.cancel({ notifications: [{ id: 7001 }] }).catch(() => {});
+    if (!S.reminder.on) { S.ui.remMsg = ''; return; }
+    const perm = await LN.requestPermissions();
+    if (perm && perm.display && perm.display !== 'granted') {
+      S.ui.remMsg = 'Телефон не разрешил уведомления. Включите их: Настройки → Приложения → Дневник КБЖУ → Уведомления.';
+      S.reminder.on = false; lsPut('reminder', S.reminder); render(); return;
+    }
+    const [hh, mm] = String(S.reminder.time || '09:00').split(':').map(Number);
+    await LN.schedule({ notifications: [{
+      id: 7001,
+      title: 'Пора взвеситься ⚖️',
+      body: 'Лучше утром, до еды. Запишите вес во вкладке «Неделя».',
+      schedule: { on: { weekday: (S.reminder.wd % 7) + 1, hour: hh || 0, minute: mm || 0 }, allowWhileIdle: true },
+    }] });
+    S.ui.remMsg = `Напомню: каждую неделю, ${WD_FULL[S.reminder.wd - 1]}, ${S.reminder.time}.`;
+  } catch (e) {
+    S.ui.remMsg = 'Не получилось поставить напоминание: ' + (e && e.message ? e.message : 'ошибка');
+  }
+  if (S.tab === 'profile' && $('#rem-msg')) $('#rem-msg').textContent = S.ui.remMsg;
+}
+
+function stepsCardHTML() {
+  if (!NATIVE) return `<section class="card"><h2>Шаги</h2><p class="fine">Шаги берутся из Health Connect на телефоне, поэтому работают только в приложении для Android.</p></section>`;
+  const err = S.ui.stepsErr;
+  const errHTML = err === 'nohc'
+    ? `<p class="fine">На телефоне не найден Health Connect. На Android 14 и новее он встроен в систему, на более старых его нужно установить.</p><div class="row-actions"><button class="btn" data-act="hcStore">Открыть в Google Play</button></div>`
+    : err === 'denied'
+    ? `<p class="fine">Доступ к шагам не выдан. Откройте Health Connect → «Разрешения приложений» → «Дневник КБЖУ» и включите «Шаги».</p><div class="row-actions"><button class="btn" data-act="hcOpen">Открыть Health Connect</button></div>`
+    : err ? `<p class="fine warnline">${esc(err)}</p>` : '';
+  if (!S.stepsOn) return `<section class="card"><h2>Шаги</h2>
+      <p class="fine">Шаги считает Samsung Health (или другой шагомер), а дневник забирает их из Health Connect. Тогда расход калорий будет считаться по реальным шагам за каждый день, а не по уровню активности из параметров.</p>
+      <div class="row-actions"><button class="btn primary" data-act="stepsOn">Подключить шаги</button></div>${errHTML}</section>`;
+  const today = S.steps[isoDate(new Date())];
+  return `<section class="card"><h2>Шаги</h2>
+      <p class="num">Сегодня: <b>${today != null ? `${fmtInt(today)} ${stepWord(today)}` : 'пока нет данных'}</b>${today != null && stepKcal(today) > 0 ? ` · ходьба ≈ ${fmtInt(stepKcal(today))} ккал` : ''}</p>
+      <div class="row-actions"><button class="btn" data-act="stepsSync">Обновить</button><button class="btn" data-act="hcOpen">Health Connect</button><button class="btn" data-act="stepsOff">Отключить</button></div>
+      ${errHTML}
+      <p class="fine">Расход за день = базовый обмен × 1,2 (сидячий образ жизни) + ходьба сверх ${fmtInt(STEP_BASE)} шагов: ≈ 0,5 ккал на 1 кг веса за каждый километр, длина шага по росту. Уровень активности из параметров по-прежнему задаёт норму еды, а расход на вкладке «Неделя» теперь считается по шагам.</p>
+      <p class="fine">Если шаги не обновляются: Samsung Health → ⋮ → Настройки → Health Connect, разрешите Samsung Health записывать «Шаги».</p></section>`;
+}
+
+function reminderCardHTML() {
+  if (!NATIVE) return `<section class="card"><h2>Напоминание о взвешивании</h2><p class="fine">Уведомления работают только в приложении для Android.</p></section>`;
+  const R = S.reminder;
+  return `<section class="card"><h2>Напоминание о взвешивании</h2>
+      <label class="check"><input type="checkbox" id="rem-on" ${R.on ? 'checked' : ''}> Напоминать раз в неделю</label>
+      <div class="grid2">
+        <label class="f"><span>День</span><select class="field" id="rem-day">${WD_FULL.map((d, i) => `<option value="${i + 1}" ${R.wd === i + 1 ? 'selected' : ''}>${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select></label>
+        <label class="f"><span>Время</span><input class="field num" type="time" id="rem-time" value="${esc(R.time)}"></label>
+      </div>
+      <p class="fine" id="rem-msg">${esc(S.ui.remMsg || 'Взвешиваться лучше в один и тот же день, утром, до еды.')}</p></section>`;
+}
 async function saveFile(filename, text, type) {
   if (NATIVE) {
     const { Filesystem, Share } = window.Capacitor.Plugins;
@@ -2364,6 +2503,11 @@ document.addEventListener('click', async e => {
     case 'applyProf': S.profile = clone(S.pdraft); touchProfile(); render(); break;
     case 'cancelProf': S.pdraft = clone(S.profile); render(); break;
     case 'export': exportData(); break;
+    case 'stepsOn': connectSteps(); break;
+    case 'stepsSync': syncSteps(); break;
+    case 'stepsOff': S.stepsOn = false; lsPut('stepsOn', false); S.ui.stepsErr = ''; S.weekData = null; render(); break;
+    case 'hcOpen': try { await plug('HealthPlugin').openHealthConnectSettings(); } catch (err) {} break;
+    case 'hcStore': try { await plug('HealthPlugin').showHealthConnectInPlayStore(); } catch (err) {} break;
     case 'exportCsv': exportCsv(); break;
     case 'importYes': applyImport(); break;
     case 'importNo': S.ui.importData = null; render(); break;
@@ -2420,6 +2564,10 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.id === 'rem-on' || t.id === 'rem-day' || t.id === 'rem-time') {
+    S.reminder = { on: $('#rem-on').checked, wd: Number($('#rem-day').value) || 7, time: $('#rem-time').value || '09:00' };
+    applyReminder(); return;
+  }
   if (t.id === 'pf-manual') {
     S.pdraft.manual = t.checked;
     if (t.checked && !S.pdraft.mKcal) { const g = computeGoal({ ...S.pdraft, manual: false }); if (g) Object.assign(S.pdraft, { mKcal: g.kcal, mP: g.p, mF: g.f, mC: g.c }); }
@@ -2541,6 +2689,7 @@ document.addEventListener('dragend', () => { if (dragId) { dragId = null; clearD
 document.addEventListener('visibilitychange', () => { if (!document.hidden) window.KBJU_THEME.apply(); });
 document.addEventListener('visibilitychange', async () => {
   if (!S.store) return;
+  if (!document.hidden) syncSteps();
   if (document.hidden) { flushDay(); return; }
   if (dayDirty || S.ui.adding || S.modal || S.tab !== 'diary' || document.activeElement?.dataset?.grams) return;
   const date = S.date; let d = null;
@@ -2597,6 +2746,9 @@ async function init() {
   await loadDay(S.date);
   S.ready = true;
   render();
+  syncSteps();
+  if (NATIVE && S.reminder.on) applyReminder();
+  try { const LN = plug('LocalNotifications'); if (LN) LN.addListener('localNotificationActionPerformed', () => { S.tab = 'week'; S.weekData = null; render(); }); } catch (e) {}
   window.KBJU_THEME.topHeight();
 }
 init();
