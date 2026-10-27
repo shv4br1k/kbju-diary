@@ -186,15 +186,14 @@ window.KBJU_THEME = (function () {
       out.push(svg('0 0 110 110', web(), 150, 'left:-2px;top:var(--top-h,110px);opacity:.45'));
       out.push(svg('0 0 110 110', web(), 118, 'right:-2px;top:var(--top-h,110px);opacity:.38;transform:scaleX(-1)'));
       /* a few more webs lower down the sides, not too many */
-      [[6, 46, 120, 1], [94, 66, 140, 0], [90, 30, 84, 0]].forEach(([x, y, w, sp], i) => {
+      [[7, 55, 100, 1], [93, 72, 110, 0]].forEach(([x, y, w, sp], i) => {
         out.push(svg('-50 -50 100 100', orbWeb(r), w, `left:calc(${x}% - ${w / 2}px);top:calc(${y}% - ${w / 2}px);transform:rotate(${Math.round(r() * 360)}deg);opacity:${(.22 + r() * .1).toFixed(2)}`));
         if (sp) out.push(`<div class="spider" style="left:calc(${x}% - 11px);top:calc(${y}% + 4px);animation-delay:-3s"><i style="height:46px"></i>${svg('0 0 24 22', SPIDER, 22, 'position:relative;display:block')}</div>`);
       });
       out.push(`<div class="spider" style="right:58px;top:var(--top-h,110px)"><i></i>${svg('0 0 24 22', SPIDER, 26, 'position:relative;display:block')}</div>`);
-      for (let i = 0; i < 9; i++) {
-        const x = r() * 100, y = 18 + r() * 64, w = 22 + r() * 24;
-        out.push(svg('0 0 30 13', BAT, w, `left:calc(${x.toFixed(1)}% - ${w / 2}px);top:${y.toFixed(1)}%;transform:rotate(${Math.round(-15 + r() * 30)}deg);opacity:${(.55 + r() * .3).toFixed(2)}`));
-      }
+      /* bats in fixed spots, spaced apart so none of them overlap */
+      [[16, 30, 30, -10], [84, 44, 26, 12], [30, 72, 24, 8], [70, 24, 22, -6], [58, 62, 28, -12], [42, 40, 22, 10], [88, 88, 24, -8]].forEach(([x, y, w, rot]) =>
+        out.push(svg('0 0 30 13', BAT, w, `left:calc(${x}% - ${w / 2}px);top:${y}%;transform:rotate(${rot}deg);opacity:.75`)));
     } else if (name === 'winter' || name === 'newyear') {
       for (let i = 0; i < 34; i++) {
         const x = r() * 100, w = 8 + r() * 14, dur = 16 + r() * 22;
@@ -218,15 +217,22 @@ window.KBJU_THEME = (function () {
         b += `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(${(sz / 40).toFixed(2)}) translate(-20 -20)">${leaf(cols[i % cols.length], r() > .4)}</g>`;
       }
     } else if (name === 'halloween') {
-      /* a row of pumpkins across the whole width: big ones in the back, small ones in front */
+      /* a symmetric row across the whole width: the big jack-o'-lantern in the middle,
+         the same pattern mirrored to both sides, only a few with faces */
       w = Math.max(360, window.innerWidth);
-      const P = (cx, sc, face) => `<g transform="translate(${(cx - 20 * sc).toFixed(1)} ${(h - 1 - 35.5 * sc).toFixed(1)}) scale(${sc.toFixed(2)})">${pumpkin(face)}</g>`;
-      const cols = ['#9C4A23', '#B5892E', '#C2652A', '#8C8A3A'];
-      for (let x = 0; x < w; x += 22 + r() * 30) b += `<g transform="translate(${x.toFixed(0)} ${(76 + r() * 6).toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(.42) translate(-20 -20)">${leaf(cols[Math.floor(r() * 4)], r() > .5)}</g>`;
-      let back = '', front = '';
-      for (let x = -10; x < w + 30;) { const sc = 1.15 + r() * .85; back += P(x + 20 * sc, sc, r() > .4 ? 1 : 0); x += 40 * sc * (.68 + r() * .22); }
-      for (let x = 20 + r() * 30; x < w; x += 50 + r() * 50) { const sc = .55 + r() * .35; front += P(x, sc, r() > .7 ? 1 : 0); }
-      b += back + front;
+      const P = (cx, sc, face) => `<g transform="translate(${(cx - 20 * sc).toFixed(1)} ${(h - 1 - 35.5 * sc).toFixed(1)}) scale(${sc})">${pumpkin(face)}</g>`;
+      const L = (cx, rot, c, m) => `<g transform="translate(${cx.toFixed(1)} 79) rotate(${rot}) scale(.42) translate(-20 -20)">${leaf(c, m)}</g>`;
+      const half = [[1.15, 0], [.7, 0], [1.4, 0], [.8, 0], [1.55, 1], [.7, 0], [1.2, 0], [.85, 0], [1.4, 0], [.7, 0], [1.6, 1], [.8, 0]];
+      const mid = w / 2, big = 1.95;
+      let b2 = '', x = 20 * big;
+      for (let i = 0; i < half.length * 3 && x < mid + 40; i++) {
+        const [sc, face] = half[i % half.length];
+        x += 6 + 20 * sc;
+        b2 = P(mid - x, sc, face) + P(mid + x, sc, face) + b2;
+        if (i % 2 === 0) b2 += L(mid - x - 20 * sc - 3, 30, '#9C4A23', 1) + L(mid + x + 20 * sc + 3, -30, '#9C4A23', 1);
+        x += 20 * sc;
+      }
+      b += b2 + P(mid, big, 1);
     } else if (name === 'winter' || name === 'newyear') {
       b += '<path d="M70 84 C80 70 110 64 140 64 Q180 58 220 64 C250 64 280 70 290 84 Z" fill="#E7F0F6" opacity=".9"/><path d="M40 84 C55 76 80 74 100 78 L120 84 Z M240 84 L260 78 C280 74 305 76 320 84 Z" fill="#E7F0F6" opacity=".55"/>';
       if (name === 'winter') {
