@@ -63,6 +63,23 @@ window.KBJU_THEME = (function () {
     });
     return `<g fill="none" stroke="#D9CFE3" stroke-width="1">${b}</g>`;
   }
+  /* A full round web, slightly irregular, with a sagging spiral. */
+  function orbWeb(r) {
+    const spokes = 12 + Math.floor(r() * 5), ang = [];
+    for (let i = 0; i < spokes; i++) ang.push((i + (r() - .5) * .35) / spokes * Math.PI * 2);
+    let b = ang.map(a => `<line x1="0" y1="0" x2="${(Math.cos(a) * 50).toFixed(1)}" y2="${(Math.sin(a) * 50).toFixed(1)}"/>`).join('');
+    for (let rr = 6; rr < 48; rr += 5 + r() * 2.5) {
+      let d = '';
+      for (let i = 0; i <= spokes; i++) {
+        const a1 = ang[i % spokes], a2 = ang[(i + 1) % spokes] + (i + 1 === spokes ? Math.PI * 2 : 0), am = (a1 + a2) / 2, k = rr * (.84 + r() * .06);
+        const x1 = Math.cos(a1) * rr, y1 = Math.sin(a1) * rr, x2 = Math.cos(a2) * rr, y2 = Math.sin(a2) * rr;
+        if (i === spokes) break;
+        d += `${i ? '' : `M${x1.toFixed(1)} ${y1.toFixed(1)} `}Q${(Math.cos(am) * k).toFixed(1)} ${(Math.sin(am) * k).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)} `;
+      }
+      b += `<path d="${d}"/>`;
+    }
+    return `<g fill="none" stroke="#D9CFE3" stroke-width=".7">${b}</g>`;
+  }
   function flake() {
     let b = '';
     for (let k = 0; k < 6; k++) {
@@ -111,18 +128,38 @@ window.KBJU_THEME = (function () {
     for (let x = 0; x < W; x += 92) swags.push([x, 3, x + 92, 3, 7, 4]);
     return garlandSVG(swags, 7, 'hg', W, 34);
   }
+  /* Background strands float freely: each one wanders across the screen in smooth bends and loops. */
   function bgGarland() {
-    const W = Math.max(320, window.innerWidth), H = Math.max(480, window.innerHeight), swags = [];
-    const r = rng(4242), rows = Math.max(3, Math.round(H / 230));
-    for (let k = 0; k < rows; k++) {
-      const y = 240 + k * (H - 200) / rows, parts = Math.max(1, Math.round(W / 460));
-      const seg = (W + 60) / parts;
-      for (let i = 0; i < parts; i++) {
-        const x1 = -30 + i * seg, x2 = x1 + seg, tilt = (k % 2 ? 1 : -1) * 18;
-        swags.push([x1, y + (i % 2 ? tilt : -tilt), x2, y + (i % 2 ? -tilt : tilt), 34 + r() * 30, Math.round(seg / 30)]);
+    const W = Math.max(320, window.innerWidth), H = Math.max(480, window.innerHeight);
+    const r = rng(4242), strands = Math.max(4, Math.round(W * H / 170000)), s = 5.2;
+    let wire = '', base = '', lit = ['', '', ''], n = 0;
+    for (let k = 0; k < strands; k++) {
+      /* random walk with a slowly changing turn rate */
+      let x = r() * W, y = 120 + r() * (H - 120), a = r() * Math.PI * 2;
+      const len = (W + H) * (.7 + r() * .5), f1 = .004 + r() * .01, f2 = .011 + r() * .02, amp = .025 + r() * .035, ph = r() * 9;
+      const pts = [[x, y]];
+      for (let d = 0; d < len; d += 5) {
+        a += Math.sin(d * f1 + ph) * amp + Math.sin(d * f2 + ph * 2) * amp * .6;
+        /* steer back when wandering far off screen */
+        if (x < -80 || x > W + 80 || y < 60 || y > H + 80) { const to = Math.atan2(H / 2 - y, W / 2 - x); a += Math.sin(to - a) * .08; }
+        x += Math.cos(a) * 5; y += Math.sin(a) * 5; pts.push([x, y]);
+      }
+      wire += 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L') + ' ';
+      /* bulbs every ~30px along the wire, sticking out sideways, alternating sides a little */
+      for (let i = 6; i < pts.length - 1; i += 6) {
+        const [px, py] = pts[i], [qx, qy] = pts[i + 1];
+        const ang = Math.atan2(qy - py, qx - px) * 180 / Math.PI + (n % 2 ? 90 : -90) + (r() - .5) * 40;
+        const [dark, bright] = BULB[n % BULB.length];
+        const g = `transform="translate(${px.toFixed(1)} ${py.toFixed(1)}) rotate(${(ang - 90).toFixed(0)})"`;
+        base += `<g ${g}><rect x="${-s * .32}" y="0" width="${s * .64}" height="${s * .55}" rx="${s * .12}" fill="#7C7258"/><ellipse cx="0" cy="${s * 1.25}" rx="${s * .62}" ry="${s * .9}" fill="${dark}"/></g>`;
+        lit[n % 3] += `<g ${g}><circle cx="0" cy="${s * 1.25}" r="${s * 2.6}" fill="url(#gl${n % BULB.length})"/><ellipse cx="0" cy="${s * 1.25}" rx="${s * .62}" ry="${s * .9}" fill="${bright}"/><ellipse cx="${-s * .2}" cy="${s * .95}" rx="${s * .16}" ry="${s * .3}" fill="#fff" opacity=".7"/></g>`;
+        n++;
       }
     }
-    return garlandSVG(swags, 5.2, 'bgg', W, H);
+    const defs = BULB.map((b, i) => `<radialGradient id="gl${i}"><stop offset="0" stop-color="${b[2]}" stop-opacity=".55"/><stop offset=".45" stop-color="${b[2]}" stop-opacity=".18"/><stop offset="1" stop-color="${b[2]}" stop-opacity="0"/></radialGradient>`).join('');
+    return `<svg class="bgg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><defs>${defs}</defs>`
+      + `<path d="${wire}" fill="none" stroke="#24452F" stroke-width="1.6" stroke-linejoin="round"/><path d="${wire}" fill="none" stroke="#3E6B4C" stroke-width=".6" stroke-dasharray="2.6 2"/>`
+      + base + lit.map((l, i) => `<g class="lit ph${i}">${l}</g>`).join('') + '</svg>';
   }
   /* The same garland as a self-contained picture for the day summary card; it blinks on its own. */
   function cardGarland() {
@@ -148,13 +185,17 @@ window.KBJU_THEME = (function () {
     } else if (name === 'halloween') {
       out.push(svg('0 0 110 110', web(), 150, 'left:-2px;top:var(--top-h,110px);opacity:.45'));
       out.push(svg('0 0 110 110', web(), 118, 'right:-2px;top:var(--top-h,110px);opacity:.38;transform:scaleX(-1)'));
+      /* round webs all over the page, each with a spider on a thread now and then */
+      const webs = [[18, 30, 170], [78, 22, 120], [52, 48, 210], [12, 66, 140], [86, 58, 180], [40, 84, 130], [70, 88, 150], [30, 12, 90]];
+      webs.forEach(([x, y, w], i) => {
+        out.push(svg('-50 -50 100 100', orbWeb(r), w, `left:calc(${x}% - ${w / 2}px);top:calc(${y}% - ${w / 2}px);transform:rotate(${Math.round(r() * 360)}deg);opacity:${(.2 + r() * .14).toFixed(2)}`));
+        if (i % 3 === 1) out.push(`<div class="spider" style="left:calc(${x}% - 13px);top:calc(${y}% + 6px);animation-delay:${-i * 1.3}s"><i style="height:${30 + Math.round(r() * 40)}px"></i>${svg('0 0 24 22', SPIDER, 22, 'position:relative;display:block')}</div>`);
+      });
       out.push(`<div class="spider" style="right:58px;top:var(--top-h,110px)"><i></i>${svg('0 0 24 22', SPIDER, 26, 'position:relative;display:block')}</div>`);
-      for (let i = 0; i < 8; i++) {
-        const x = side(i), y = 22 + r() * 56, w = 26 + r() * 22;
-        out.push(svg('0 0 30 13', BAT, w, `left:calc(${x.toFixed(1)}% - ${w / 2}px);top:${y.toFixed(1)}%;transform:rotate(${Math.round(-15 + r() * 30)}deg);opacity:${(.6 + r() * .3).toFixed(2)}`));
+      for (let i = 0; i < 12; i++) {
+        const x = r() * 100, y = 18 + r() * 70, w = 22 + r() * 24;
+        out.push(svg('0 0 30 13', BAT, w, `left:calc(${x.toFixed(1)}% - ${w / 2}px);top:${y.toFixed(1)}%;transform:rotate(${Math.round(-15 + r() * 30)}deg);opacity:${(.55 + r() * .3).toFixed(2)}`));
       }
-      [['left', -10, 64, 1], ['left', 44, 40, 0], ['right', -6, 70, 1], ['right', 54, 36, 0]].forEach(([s, off, w, face]) =>
-        out.push(svg('0 0 40 36', pumpkin(face), w, `${s}:${off}px;bottom:${face ? -4 : 2}px;opacity:.95`)));
     } else if (name === 'winter' || name === 'newyear') {
       for (let i = 0; i < 34; i++) {
         const x = r() * 100, w = 8 + r() * 14, dur = 16 + r() * 22;
@@ -178,7 +219,11 @@ window.KBJU_THEME = (function () {
         b += `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(${(sz / 40).toFixed(2)}) translate(-20 -20)">${leaf(cols[i % cols.length], r() > .4)}</g>`;
       }
     } else if (name === 'halloween') {
-      b += `<g transform="translate(96 30) scale(1.25)">${pumpkin(0)}</g><g transform="translate(140 6) scale(1.95)">${pumpkin(1)}</g><g transform="translate(222 34) scale(1.15)">${pumpkin(1)}</g><g transform="translate(70 56) scale(.62)">${pumpkin(0)}</g><g transform="translate(268 58) scale(.58)">${pumpkin(0)}</g>`;
+      /* one heap: two in the back, the big one in the middle, small ones in front, a few leaves at the base */
+      const P = (cx, sc, face) => `<g transform="translate(${(cx - 20 * sc).toFixed(1)} ${(h - 1 - 35.5 * sc).toFixed(1)}) scale(${sc})">${pumpkin(face)}</g>`;
+      const cols = ['#9C4A23', '#B5892E', '#C2652A', '#8C8A3A'];
+      for (let i = 0; i < 9; i++) b += `<g transform="translate(${(110 + r() * 140).toFixed(0)} ${(76 + r() * 6).toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(.42) translate(-20 -20)">${leaf(cols[i % 4], i % 2)}</g>`;
+      b += P(146, 1.5, 0) + P(244, 1.45, 1) + P(195, 1.95, 1) + P(122, .95, 0) + P(268, .9, 0) + P(160, .7, 0) + P(226, .62, 0);
     } else if (name === 'winter' || name === 'newyear') {
       b += '<path d="M70 84 C80 70 110 64 140 64 Q180 58 220 64 C250 64 280 70 290 84 Z" fill="#E7F0F6" opacity=".9"/><path d="M40 84 C55 76 80 74 100 78 L120 84 Z M240 84 L260 78 C280 74 305 76 320 84 Z" fill="#E7F0F6" opacity=".55"/>';
       if (name === 'winter') {
