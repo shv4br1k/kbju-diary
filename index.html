@@ -185,15 +185,14 @@ window.KBJU_THEME = (function () {
     } else if (name === 'halloween') {
       out.push(svg('0 0 110 110', web(), 150, 'left:-2px;top:var(--top-h,110px);opacity:.45'));
       out.push(svg('0 0 110 110', web(), 118, 'right:-2px;top:var(--top-h,110px);opacity:.38;transform:scaleX(-1)'));
-      /* round webs all over the page, each with a spider on a thread now and then */
-      const webs = [[18, 30, 170], [78, 22, 120], [52, 48, 210], [12, 66, 140], [86, 58, 180], [40, 84, 130], [70, 88, 150], [30, 12, 90]];
-      webs.forEach(([x, y, w], i) => {
-        out.push(svg('-50 -50 100 100', orbWeb(r), w, `left:calc(${x}% - ${w / 2}px);top:calc(${y}% - ${w / 2}px);transform:rotate(${Math.round(r() * 360)}deg);opacity:${(.2 + r() * .14).toFixed(2)}`));
-        if (i % 3 === 1) out.push(`<div class="spider" style="left:calc(${x}% - 13px);top:calc(${y}% + 6px);animation-delay:${-i * 1.3}s"><i style="height:${30 + Math.round(r() * 40)}px"></i>${svg('0 0 24 22', SPIDER, 22, 'position:relative;display:block')}</div>`);
+      /* a few more webs lower down the sides, not too many */
+      [[6, 46, 120, 1], [94, 66, 140, 0], [90, 30, 84, 0]].forEach(([x, y, w, sp], i) => {
+        out.push(svg('-50 -50 100 100', orbWeb(r), w, `left:calc(${x}% - ${w / 2}px);top:calc(${y}% - ${w / 2}px);transform:rotate(${Math.round(r() * 360)}deg);opacity:${(.22 + r() * .1).toFixed(2)}`));
+        if (sp) out.push(`<div class="spider" style="left:calc(${x}% - 11px);top:calc(${y}% + 4px);animation-delay:-3s"><i style="height:46px"></i>${svg('0 0 24 22', SPIDER, 22, 'position:relative;display:block')}</div>`);
       });
       out.push(`<div class="spider" style="right:58px;top:var(--top-h,110px)"><i></i>${svg('0 0 24 22', SPIDER, 26, 'position:relative;display:block')}</div>`);
-      for (let i = 0; i < 12; i++) {
-        const x = r() * 100, y = 18 + r() * 70, w = 22 + r() * 24;
+      for (let i = 0; i < 9; i++) {
+        const x = r() * 100, y = 18 + r() * 64, w = 22 + r() * 24;
         out.push(svg('0 0 30 13', BAT, w, `left:calc(${x.toFixed(1)}% - ${w / 2}px);top:${y.toFixed(1)}%;transform:rotate(${Math.round(-15 + r() * 30)}deg);opacity:${(.55 + r() * .3).toFixed(2)}`));
       }
     } else if (name === 'winter' || name === 'newyear') {
@@ -219,11 +218,15 @@ window.KBJU_THEME = (function () {
         b += `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(${(sz / 40).toFixed(2)}) translate(-20 -20)">${leaf(cols[i % cols.length], r() > .4)}</g>`;
       }
     } else if (name === 'halloween') {
-      /* one heap: two in the back, the big one in the middle, small ones in front, a few leaves at the base */
-      const P = (cx, sc, face) => `<g transform="translate(${(cx - 20 * sc).toFixed(1)} ${(h - 1 - 35.5 * sc).toFixed(1)}) scale(${sc})">${pumpkin(face)}</g>`;
+      /* a row of pumpkins across the whole width: big ones in the back, small ones in front */
+      w = Math.max(360, window.innerWidth);
+      const P = (cx, sc, face) => `<g transform="translate(${(cx - 20 * sc).toFixed(1)} ${(h - 1 - 35.5 * sc).toFixed(1)}) scale(${sc.toFixed(2)})">${pumpkin(face)}</g>`;
       const cols = ['#9C4A23', '#B5892E', '#C2652A', '#8C8A3A'];
-      for (let i = 0; i < 9; i++) b += `<g transform="translate(${(110 + r() * 140).toFixed(0)} ${(76 + r() * 6).toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(.42) translate(-20 -20)">${leaf(cols[i % 4], i % 2)}</g>`;
-      b += P(146, 1.5, 0) + P(244, 1.45, 1) + P(195, 1.95, 1) + P(122, .95, 0) + P(268, .9, 0) + P(160, .7, 0) + P(226, .62, 0);
+      for (let x = 0; x < w; x += 22 + r() * 30) b += `<g transform="translate(${x.toFixed(0)} ${(76 + r() * 6).toFixed(0)}) rotate(${Math.round(r() * 360)}) scale(.42) translate(-20 -20)">${leaf(cols[Math.floor(r() * 4)], r() > .5)}</g>`;
+      let back = '', front = '';
+      for (let x = -10; x < w + 30;) { const sc = 1.15 + r() * .85; back += P(x + 20 * sc, sc, r() > .4 ? 1 : 0); x += 40 * sc * (.68 + r() * .22); }
+      for (let x = 20 + r() * 30; x < w; x += 50 + r() * 50) { const sc = .55 + r() * .35; front += P(x, sc, r() > .7 ? 1 : 0); }
+      b += back + front;
     } else if (name === 'winter' || name === 'newyear') {
       b += '<path d="M70 84 C80 70 110 64 140 64 Q180 58 220 64 C250 64 280 70 290 84 Z" fill="#E7F0F6" opacity=".9"/><path d="M40 84 C55 76 80 74 100 78 L120 84 Z M240 84 L260 78 C280 74 305 76 320 84 Z" fill="#E7F0F6" opacity=".55"/>';
       if (name === 'winter') {
@@ -278,7 +281,7 @@ window.KBJU_THEME = (function () {
   window.addEventListener('resize', () => {
     topHeight();
     clearTimeout(rt);
-    rt = setTimeout(() => { if (current === 'newyear') { const l = document.getElementById('decor'); if (l) l.innerHTML = decor('newyear'); } }, 250);
+    rt = setTimeout(() => { if (current === 'newyear') { const l = document.getElementById('decor'); if (l) l.innerHTML = decor('newyear'); } if (current === 'halloween') document.documentElement.style.setProperty('--scene', scene('halloween')); }, 250);
   });
   return { LIST, season, choice, apply, set, topHeight };
 })();
